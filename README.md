@@ -18,22 +18,24 @@ Full plan (day by day, which stress tools, pass criteria, results log): the
 Every run makes a folder `reports\<PC>_<mode>_<date_time>\` with `SUMMARY.txt`, the raw files, and
 `MANIFEST.sha256` (fingerprints that prove the files were not edited later).
 
-## Before the laptop arrives
+## Get the kit onto the laptop (no Git needed)
 
-1. Copy this whole folder to a USB stick. Run the script from the stick, not from `C:`.
-   The reports then land on the stick and survive the Windows reinstall on day 1.
-2. Put the portable test tools from the runbook on the same stick (HWiNFO64, OCCT, CPU-Z, GPU-Z,
-   CrystalDiskInfo, CrystalDiskMark).
+1. Open this repo's page on GitHub in the browser. Click **Code**, then **Download ZIP**.
+2. In Downloads, right-click the ZIP and choose **Extract All**.
+
+Do not install Git or anything else before Step 2: the first report should show the laptop as delivered.
+Portable versions of the runbook tools (HWiNFO64, OCCT, CPU-Z, GPU-Z, CrystalDiskInfo, CrystalDiskMark)
+are fine: they run without installing.
 
 ## Step 1: open PowerShell as administrator (every time)
 
-1. Plug in the USB stick.
-2. Press `Win + X`, then click **Terminal (Admin)** (or **Windows PowerShell (Admin)**). Click **Yes**.
-3. Go to the stick. If the stick is drive `E:` and the folder is `omen-kit`:
+1. Press `Win + X`, then click **Terminal (Admin)** (or **Windows PowerShell (Admin)**). Click **Yes**.
+2. Go to the kit folder. This finds it inside Downloads, wherever Extract All put it:
 
-        cd E:\omen-kit
+        cd (Get-ChildItem $HOME\Downloads -Recurse -Filter omen-audit.ps1 | Select-Object -First 1).DirectoryName
 
-4. Allow scripts for this window only (it resets when the window closes):
+3. Allow scripts for this window only (it resets when the window closes). This also lifts the
+   "downloaded from the internet" block Windows puts on the file:
 
         Set-ExecutionPolicy -Scope Process Bypass -Force
 
@@ -52,9 +54,12 @@ It takes a few minutes (msinfo32 is the slow part). It changes nothing on the la
   by someone else, TPM, boot entries, Windows OEM key and activation, company or MDM enrollment, admin accounts
 - Errors: devices with driver errors, WHEA hardware errors, crashes and GPU driver resets in the last 30 days
 
-Upload the report folder to Drive the same day.
+**Upload the `reports` folder to Google Drive now, before Step 3.** The reinstall erases the whole drive,
+and this report is your only record of the laptop as the seller delivered it.
 
 ## Step 3: after the clean reinstall
+
+The reinstall wiped the kit too. Download the ZIP again (or install Git now and `git clone`, it no longer matters).
 
 After the Windows reinstall (HP Cloud Recovery Tool) and the HP and NVIDIA drivers, run the full audit again:
 
