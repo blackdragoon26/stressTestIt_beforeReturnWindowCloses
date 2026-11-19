@@ -30,26 +30,49 @@ Every run makes a folder `reports\<PC>_<mode>_<date_time>\` containing:
 The PDF is made even if a check crashes or the laptop is not recognised. Microsoft Edge, which is built
 into Windows, prints it.
 
-## Get the kit onto the laptop (no Git needed)
+## Where everything lives
 
-1. Open this repo's page on GitHub in the browser. Click **Code**, then **Download ZIP**.
-2. In Downloads, right-click the ZIP and choose **Extract All**.
+The kit always goes in one fixed folder, so every command below works as written:
+
+| What | Path |
+| --- | --- |
+| The kit | `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main` |
+| The reports | `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports` |
+
+GitHub names the folder inside the ZIP after the repo plus `-main`. That is why the long name is there.
+
+## Step 1: open PowerShell and get the kit
+
+1. Connect to the internet.
+2. Press `Win + X`, then click **Terminal (Admin)** (or **Windows PowerShell (Admin)**). Click **Yes**.
+3. Copy this whole block, paste it into the window, and press Enter:
+
+        Set-ExecutionPolicy -Scope Process Bypass -Force
+        Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
+        Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
+        cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
+
+   Line by line:
+   - Allow scripts in this window only. The setting resets when the window closes.
+   - Download the kit from GitHub.
+   - Unpack it into `C:\omen-kit`.
+   - Go into the kit folder.
+
+   Nothing gets installed. Paste the same block again any time to get the latest version of the kit.
+   Your `reports` folder is kept.
+
+**Every later time**, in a new admin PowerShell window, you only need:
+
+    Set-ExecutionPolicy -Scope Process Bypass -Force
+    cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
+
+**If you downloaded the ZIP in the browser instead** and used Extract All, the folder is nested twice:
+
+    cd $HOME\Downloads\stressTestIt_beforeReturnWindowCloses-main\stressTestIt_beforeReturnWindowCloses-main
 
 Do not install Git or anything else before Step 2: the first report should show the laptop as delivered.
 Portable versions of the runbook tools (HWiNFO64, OCCT, CPU-Z, GPU-Z, CrystalDiskInfo, CrystalDiskMark)
 are fine: they run without installing.
-
-## Step 1: open PowerShell as administrator (every time)
-
-1. Press `Win + X`, then click **Terminal (Admin)** (or **Windows PowerShell (Admin)**). Click **Yes**.
-2. Go to the kit folder. This finds it inside Downloads, wherever Extract All put it:
-
-        cd (Get-ChildItem $HOME\Downloads -Recurse -Filter omen-audit.ps1 | Select-Object -First 1).DirectoryName
-
-3. Allow scripts for this window only (it resets when the window closes). This also lifts the
-   "downloaded from the internet" block Windows puts on the file:
-
-        Set-ExecutionPolicy -Scope Process Bypass -Force
 
 ## Step 2: day 1, full audit on the system exactly as delivered
 
@@ -69,14 +92,14 @@ and changes nothing on the laptop. It checks everything against the expected val
   by someone else, TPM, boot entries, Windows OEM key and activation, company or MDM enrollment, admin accounts
 - Errors: devices with driver errors, WHEA hardware errors, crashes and GPU driver resets in the last 30 days
 
-**Upload the `reports` folder to Google Drive now, before Step 3.** The reinstall erases the whole drive,
+**Upload `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports` to Google Drive now, before
+Step 3.** The reinstall erases the whole drive,
 and this report is your only record of the laptop as the seller delivered it.
 
 ## Step 3: after the clean reinstall
 
 Reinstall Windows with the HP Cloud Recovery Tool, then install the HP and NVIDIA drivers. The reinstall
-erased the kit too, so download the ZIP again. Installing Git and using `git clone` is fine now. Then run the
-full audit again:
+erased the kit too, so do Step 1 again (the same pasted block). Then run the full audit again:
 
     .\omen-audit.ps1
 
@@ -85,7 +108,8 @@ with the NVIDIA driver.
 
 ## Step 4: during every stress test, log the sensors
 
-Open a **second** admin PowerShell window (repeat Step 1) and start the monitor. Then start the stress test
+Open a **second** admin PowerShell window, paste the two "every later time" lines from Step 1, and start
+the monitor. Then start the stress test
 (OCCT, a Cinebench loop, or a game):
 
     .\omen-audit.ps1 -Monitor -Minutes 60

@@ -47,21 +47,35 @@ test machine. It also runs other remote workloads: install nothing system-wide, 
 - **Battery:** 91mobiles says 45 Wh, a review of this model says 97 Wh. The check is a WARN only.
 - **Not checked:** the Wi-Fi chip model and charger wattage (230 W vs 280 W). Sources conflict.
 - **HP-only checks still untested:** BIOS password (HP WMI) and the board ID 8BB3. They first run on the OMEN.
+- **Untested until the next run:** the NVMe health log reader (no C# compiler on the Linux workbench).
 
 ## Status
 
-- **`omen-audit.ps1` has never been executed.** It passes structure checks (brackets, quotes and
-  here-strings balance; both profiles define every key the script reads), but PowerShell is not
-  available on the Linux workbench.
-- `linux-live-audit.sh` ran on the ASUS. Its findings are fixed: the kernel error filter, the stress-ng
-  false FAIL, and the radio firmware WARN.
+- **First Windows run on the ASUS (2026-11-19):** profile detection, display, RAM, battery, Secure Boot keys
+  and the PDF all worked. Fixed after that run:
+  - The event log crashed with "The parameter is incorrect" on the `nvlddmkm` query (no NVIDIA driver
+    installed). Queries now run one provider at a time inside try/catch, and NVIDIA checks are skipped on
+    non-NVIDIA profiles.
+  - MDM falsely FAILed on Windows' built-in enrollments (Deploy, Cloud and Local Authority). Now only
+    entries with a UPN or another provider count.
+  - The SSD wrongly PASSED: Windows' reliability counter left power-on hours blank. Now the NVMe health
+    log is read directly through IOCTL_STORAGE_QUERY_PROPERTY (`Get-NvmeHealth`). If hours still cannot
+    be read, the check WARNs.
+  - README: the ZIP unpacks to a doubly nested `stressTestIt_beforeReturnWindowCloses-main` folder, and the
+    old `cd` search returned nothing. Setup is now one pasted block that unpacks to `C:\omen-kit`.
+- Real findings on the ASUS: 4 Kernel-Power 41 events in 30 days (FAIL, as designed), battery at 61%
+  after 1,833 cycles (WARN).
+- `linux-live-audit.sh` ran on the ASUS. Its findings are fixed.
 
 ## To do
 
-1. **First real test:** on the ASUS booted into Windows, run `.\omen-audit.ps1`, then `-Quick`, then
-   `-Monitor -Minutes 2`. Expected: WARN SSD health (19,000+ hours) and WARN Battery (about 60%,
-   1,833 cycles), PASS for the rest, and a readable PDF. Fix whatever breaks.
-2. Optional: re-run `linux-live-audit.sh` on the ASUS with
+1. **Re-run on the ASUS in Windows:** paste the Step 1 block from the README, then run `.\omen-audit.ps1`.
+   Confirm:
+   - "SSD health" shows about 19,276 h and 72 TB written (Linux's numbers for this drive) and WARNs.
+   - The event log section finishes with no "Script error".
+   - MDM enrollment PASSes.
+   Then try `-Quick` and `-Monitor -Minutes 2`.
+2. Optional: re-run `linux-live-audit.sh` with
    `sudo EXPECT_CPU=3500U EXPECT_THREADS=8 EXPECT_GPU_REGEX='Radeon|Picasso' EXPECT_PK_REGEX=ASUS bash linux-live-audit.sh --install --stress`.
 3. Add a LICENSE if Sankalp wants the repo public.
 

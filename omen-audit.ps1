@@ -135,6 +135,64 @@ function ConvertTo-Num([string]$s) {
     return $null
 }
 
+function Get-NvmeHealth([int]$Drive) {
+    # The NVMe SMART / health log (log page 2), read straight from the drive with the Windows storage
+    # IOCTL, as smartmontools does. Windows' own counters can leave power-on hours blank (seen on the
+    # ASUS's Kingston drive, which Linux reads as 19,276 h and 72.1 TB written). Needs admin.
+    try {
+        if (-not ('NvmeHealthLog' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+public static class NvmeHealthLog {
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool DeviceIoControl(SafeFileHandle device, uint code, byte[] inBuffer, int inSize, byte[] outBuffer, int outSize, out int returned, IntPtr overlapped);
+    public static byte[] Read(int drive) {
+        using (SafeFileHandle h = CreateFile(@"\\.\PhysicalDrive" + drive, 0xC0000000, 3, IntPtr.Zero, 3, 0, IntPtr.Zero)) {
+            if (h.IsInvalid) return null;
+            byte[] buf = new byte[8 + 40 + 512];
+            BitConverter.GetBytes(50).CopyTo(buf, 0);   // StorageDeviceProtocolSpecificProperty
+            BitConverter.GetBytes(0).CopyTo(buf, 4);    // PropertyStandardQuery
+            BitConverter.GetBytes(3).CopyTo(buf, 8);    // ProtocolTypeNvme
+            BitConverter.GetBytes(2).CopyTo(buf, 12);   // NVMeDataTypeLogPage
+            BitConverter.GetBytes(2).CopyTo(buf, 16);   // log page 2: SMART / health information
+            BitConverter.GetBytes(40).CopyTo(buf, 24);  // ProtocolDataOffset
+            BitConverter.GetBytes(512).CopyTo(buf, 28); // ProtocolDataLength
+            int returned;
+            if (!DeviceIoControl(h, 0x002D1400, buf, buf.Length, buf, buf.Length, out returned, IntPtr.Zero)) return null;
+            int offset = BitConverter.ToInt32(buf, 24);
+            int length = BitConverter.ToInt32(buf, 28);
+            if (length < 192 || 8 + offset + 512 > buf.Length) return null;
+            byte[] log = new byte[512];
+            Array.Copy(buf, 8 + offset, log, 0, 512);
+            return log;
+        }
+    }
+}
+'@
+        }
+        $log = [NvmeHealthLog]::Read($Drive)
+        if (-not $log) { return $null }
+        # Data units are 1000 x 512 bytes
+        return [ordered]@{
+            CriticalWarning   = $log[0]
+            TemperatureC      = [BitConverter]::ToUInt16($log, 1) - 273
+            AvailableSparePct = $log[3]
+            PercentUsed       = $log[5]
+            DataReadTB        = [math]::Round([BitConverter]::ToUInt64($log, 32) * 512000 / 1e12, 2)
+            DataWrittenTB     = [math]::Round([BitConverter]::ToUInt64($log, 48) * 512000 / 1e12, 2)
+            PowerCycles       = [BitConverter]::ToUInt64($log, 112)
+            PowerOnHours      = [BitConverter]::ToUInt64($log, 128)
+            UnsafeShutdowns   = [BitConverter]::ToUInt64($log, 144)
+            MediaErrors       = [BitConverter]::ToUInt64($log, 160)
+            ErrorLogEntries   = [BitConverter]::ToUInt64($log, 176)
+        }
+    } catch { return $null }
+}
+
 function Find-NvidiaSmi {
     $s = Get-Command nvidia-smi -ErrorAction SilentlyContinue
     if (-not $s -and (Test-Path 'C:\Windows\System32\nvidia-smi.exe')) { $s = 'C:\Windows\System32\nvidia-smi.exe' }
@@ -158,14 +216,33 @@ function Test-EventLogs {
 
     $all = @()
     foreach ($q in $queries) {
-        $events = @(Get-WinEvent -FilterHashtable $q.Filter -ErrorAction SilentlyContinue)
+        if ($q.Name -like 'NVIDIA*' -and $Expect.GpuVramGB -eq 0) {
+            Add-Result 'INFO' $q.Name 'skipped: this laptop has no NVIDIA GPU'
+            continue
+        }
+        # Get-WinEvent throws even with -ErrorAction SilentlyContinue when a provider is not installed
+        # on this machine (seen on the ASUS: "The parameter is incorrect" for nvlddmkm). So: one provider
+        # at a time, "not installed" and "no events" count as zero, anything else is reported.
+        $events = @(); $problem = $null
+        foreach ($p in @($q.Filter.ProviderName)) {
+            $f = @{} + $q.Filter
+            if ($null -ne $p) { $f.ProviderName = $p }
+            try { $events += @(Get-WinEvent -FilterHashtable $f -ErrorAction Stop) }
+            catch {
+                $msg = $_.Exception.Message
+                if ($msg -notmatch 'No events were found|not an event provider|do not write events|parameter is incorrect') { $problem = $msg }
+            }
+        }
         if ($q.Name -like 'Bugchecks*') {
             $events = @($events | Where-Object { $_.ProviderName -match 'BugCheck|WER-SystemErrorReporting' })
         }
-        if ($events.Count -eq 0) {
+        if ($problem -and $events.Count -eq 0) {
+            Add-Result 'WARN' $q.Name "could not read the event log: $problem"
+        } elseif ($events.Count -eq 0) {
             Add-Result 'PASS' $q.Name "0 since $($Since.ToString('yyyy-MM-dd HH:mm'))"
         } else {
-            Add-Result 'FAIL' $q.Name "$($events.Count) event(s) since $($Since.ToString('yyyy-MM-dd HH:mm'))"
+            $when = ($events | Sort-Object TimeCreated -Descending | Select-Object -First 5 | ForEach-Object { $_.TimeCreated.ToString('yyyy-MM-dd HH:mm') }) -join ', '
+            Add-Result 'FAIL' $q.Name "$($events.Count) event(s) since $($Since.ToString('yyyy-MM-dd HH:mm')). Latest: $when. Details in event_errors.csv"
             $all += $events | Select-Object TimeCreated, ProviderName, Id, LevelDisplayName,
                 @{ n = 'Message'; e = { ($_.Message -split "`r?`n")[0] } }
         }
@@ -423,7 +500,7 @@ else {
     }
     Add-Result 'INFO' 'BIOS version' "$($bios.SMBIOSBIOSVersion) ($($bios.ReleaseDate))"
 
-    if (-not $Expect.ProductNumber) { Add-Result 'INFO' 'Product number' "this model's firmware stores none ('$($cs.SystemSKUNumber)')" }
+    if (-not $Expect.ProductNumber) { Add-Result 'INFO' 'Product number' "this model's firmware stores none" }
     elseif ($cs.SystemSKUNumber -match $Expect.ProductNumber) { Add-Result 'PASS' 'Product number' $cs.SystemSKUNumber }
     else { Add-Result 'FAIL' 'Product number' "got '$($cs.SystemSKUNumber)', expected $($Expect.ProductNumber)" }
 
@@ -434,7 +511,7 @@ else {
     else { Add-Result 'WARN' 'Board ID' "got '$($bb.Product)', expected $($Expect.BoardId). Ask HP or the seller if this differs" }
 
     if ($bios.SerialNumber -and $bb.SerialNumber -and ($bb.SerialNumber -notmatch [regex]::Escape($bios.SerialNumber))) {
-        Add-Result 'INFO' 'Board serial' "board serial '$($bb.SerialNumber)' differs from system serial (often normal on HP, record it)"
+        Add-Result 'INFO' 'Board serial' "board serial '$($bb.SerialNumber)' differs from system serial (normal on most laptops, record it)"
     }
 
     # ---------- 2. CPU ----------
@@ -536,21 +613,32 @@ else {
     $disks = @(Get-PhysicalDisk)
     $disks | Select-Object DeviceId, FriendlyName, SerialNumber, MediaType, BusType, FirmwareVersion, HealthStatus,
         @{ n = 'SizeGB'; e = { [math]::Round($_.Size / 1GB) } } | Export-Csv (Join-Path $OutDir 'disks.csv') -NoTypeInformation
-    foreach ($d in $disks) {
+    foreach ($d in @($disks | Where-Object { "$($_.BusType)" -ne 'USB' })) {
         $r = $d | Get-StorageReliabilityCounter -ErrorAction SilentlyContinue
-        $detail = "$($d.FriendlyName) fw $($d.FirmwareVersion), health $($d.HealthStatus)"
         if ($r) {
             $r | Select-Object PowerOnHours, StartStopCycleCount, Wear, Temperature, TemperatureMax,
                 ReadErrorsTotal, ReadErrorsUncorrected, WriteErrorsTotal, WriteErrorsUncorrected |
                 Format-List | Out-String | Out-File (Join-Path $OutDir "disk$($d.DeviceId)_reliability.txt") -Encoding utf8
-            $detail += ", power-on $($r.PowerOnHours) h, wear $($r.Wear)%"
-            $level = 'PASS'
-            if ($d.HealthStatus -ne 'Healthy' -or $r.ReadErrorsUncorrected -gt 0 -or $r.WriteErrorsUncorrected -gt 0) { $level = 'FAIL' }
-            elseif ($r.PowerOnHours -gt $Expect.SsdHoursWarn) { $level = 'WARN'; $detail += ' (heavy prior use?)' }
-            Add-Result $level 'SSD health' $detail
-        } else {
-            Add-Result 'INFO' 'SSD health' "$detail. Reliability counters unavailable, use CrystalDiskInfo"
         }
+        $nh = if ("$($d.BusType)" -eq 'NVMe') { Get-NvmeHealth ([int]$d.DeviceId) } else { $null }
+        $detail = "$($d.FriendlyName) fw $($d.FirmwareVersion), health $($d.HealthStatus)"
+        $hours = $null
+        $level = 'PASS'
+        if ($nh) {
+            Save-Text "disk$($d.DeviceId)_nvme_health.txt" ($nh.GetEnumerator() | ForEach-Object { '{0,-18} {1}' -f $_.Key, $_.Value })
+            $hours = $nh.PowerOnHours
+            $detail += ", power-on $hours h, written $($nh.DataWrittenTB) TB, wear $($nh.PercentUsed)%, media errors $($nh.MediaErrors), unsafe shutdowns $($nh.UnsafeShutdowns)"
+            if ($nh.CriticalWarning -ne 0 -or $nh.MediaErrors -gt 0) { $level = 'FAIL' }
+        } elseif ($r -and $null -ne $r.PowerOnHours) {
+            $hours = $r.PowerOnHours
+            $detail += ", power-on $hours h, wear $($r.Wear)%"
+        }
+        if ($d.HealthStatus -ne 'Healthy' -or ($r -and ($r.ReadErrorsUncorrected -gt 0 -or $r.WriteErrorsUncorrected -gt 0))) { $level = 'FAIL' }
+        if ($level -eq 'PASS') {
+            if ($null -eq $hours) { $level = 'WARN'; $detail += '. Power-on hours not readable here: check them in CrystalDiskInfo, they are the best proof of prior use' }
+            elseif ($hours -gt $Expect.SsdHoursWarn) { $level = 'WARN'; $detail += ' (heavy prior use?)' }
+        }
+        Add-Result $level 'SSD health' $detail
     }
     # Size of the internal SSD in decimal GB (the number on the box). USB drives are ignored.
     $internal = @($disks | Where-Object { "$($_.BusType)" -ne 'USB' })
@@ -662,9 +750,14 @@ else {
     if ($joined) { Add-Result 'FAIL' 'Org join' (($joined | ForEach-Object { $_.Line.Trim() }) -join '; ') }
     else { Add-Result 'PASS' 'Org join' 'not joined to Azure AD, a domain or an enterprise' }
 
-    $enroll = @(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Enrollments' -ErrorAction SilentlyContinue |
+    # Every Windows install has built-in enrollment entries (seen on the ASUS: Deploy, Cloud and Local
+    # Authority). A real company enrollment (Intune and others) has a user (UPN) or another provider.
+    $builtin = 'Deploy Authority', 'Cloud Authority', 'Local Authority'
+    $allEnroll = @(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Enrollments' -ErrorAction SilentlyContinue |
         ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
         Where-Object { $_.ProviderID -or $_.UPN })
+    Save-Text 'mdm_enrollments.txt' ($allEnroll | Select-Object PSChildName, ProviderID, UPN, EnrollmentType | Format-Table -AutoSize | Out-String)
+    $enroll = @($allEnroll | Where-Object { $_.UPN -or ($builtin -notcontains "$($_.ProviderID)") })
     if ($enroll.Count -gt 0) { Add-Result 'FAIL' 'MDM enrollment' (($enroll | ForEach-Object { "$($_.ProviderID) $($_.UPN)" }) -join '; ') }
     else { Add-Result 'PASS' 'MDM enrollment' 'none' }
 
