@@ -1,0 +1,4 @@
+# Only the website goes into the image
+*
+!docs/
+!deploy/nginx.conf

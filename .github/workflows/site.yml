@@ -1,0 +1,96 @@
+# Publishes the website (docs/) as a multi-platform image and deploys it through Myprod.
+# Contract: Myprod docs/arm64-application-cicd.md. The Myprod app must already be registered with
+# this image repository; until the MYPROD_DEPLOY_TOKEN secret exists, only the publish job runs.
+name: Publish and deploy website
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'deploy/**', '.dockerignore', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-website
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/blackdragoon26/doakit-site
+  MYPROD_APP: doakit-site
+  MYPROD_IMAGE_ENDPOINT: https://api.sankalpjha.dev/__poolctl/api
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.reference.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Smoke test the image
+        run: |
+          docker buildx build --platform linux/amd64 --load -t site:smoke -f deploy/Dockerfile .
+          docker run -d --name smoke -p 127.0.0.1:8080:8080 site:smoke
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break; sleep 0.5; done
+          for p in / /docs.html /guide.md /site.css /site.js /docs.js /fonts/plex-sans-400.woff2; do
+            curl -fsS -o /dev/null "http://127.0.0.1:8080$p"
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/)" = 405
+          docker rm -f smoke
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish immutable multi-platform image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Record immutable image reference
+        id: reference
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "image=${IMAGE}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Published ${IMAGE}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+          docker buildx imagetools inspect "${IMAGE}@${DIGEST}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Request verified Myprod deployment
+        env:
+          IMAGE_REFERENCE: ${{ needs.publish.outputs.image }}
+          DEPLOY_TOKEN: ${{ secrets.MYPROD_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "MYPROD_DEPLOY_TOKEN is not set: image published, deployment skipped." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Register ${MYPROD_APP} in Myprod with ${IMAGE_REFERENCE}, then add the app's CI token." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          payload="$(jq -n --arg image "$IMAGE_REFERENCE" '{image: $image}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${DEPLOY_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "${MYPROD_IMAGE_ENDPOINT}/apps/${MYPROD_APP}/image"

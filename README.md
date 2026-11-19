@@ -90,6 +90,8 @@ With a profile, every spec is also compared against what the maker promised.
 | `docs/` | The docs above, and the website (`index.html`, `docs.html`, `site.css`, `fonts/`) |
 | `docs/SHA256SUMS.txt` | Fingerprints of every file the kit runs |
 | `tools/update-hashes.sh` | Regenerates `SHA256SUMS.txt`. Run it before every commit that changes a script or profile |
+| `deploy/` | The website's container (nginx, port 8080) and the Myprod handoff: [deploy/MYPROD.md](deploy/MYPROD.md) |
+| `.github/workflows/site.yml` | Publishes the website image to GHCR and deploys it through Myprod |
 
 The site uses IBM Plex Sans and IBM Plex Mono, served from `docs/fonts` under the SIL Open Font License
 (`docs/fonts/OFL.txt`).

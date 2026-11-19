@@ -31,6 +31,10 @@ machine. It also runs other remote workloads: install nothing system-wide, touch
 | `linux-live-audit.sh` | Linux audit (installed or live USB), profile-aware. `DOA_DEV=1` skips the root check for testing without sudo |
 | `mac-audit.sh` | macOS audit, experimental. Activation Lock, MDM/DEP, SIP, Gatekeeper, panics, shutdown causes |
 | `lib/common.sh` | Shared by the Linux and macOS scripts (bash 3.2): profile reading, results, HTML report, manifest |
+| `docs/site.js`, `docs/docs.js`, `docs/favicon.svg` | Page scripts (kept out of the HTML so the CSP allows no inline code) and the plain favicon |
+| `deploy/Dockerfile`, `deploy/nginx.conf`, `.dockerignore` | The website image: unprivileged nginx on 8080, `/healthz`, strict CSP, GET/HEAD only. Builds for arm64 without emulation |
+| `deploy/MYPROD.md` | Myprod handoff manifest and the operator's registration steps |
+| `.github/workflows/site.yml` | Smoke test, multi-platform GHCR publish by digest, then Myprod image endpoint once `MYPROD_DEPLOY_TOKEN` exists |
 | `docs/fonts/` | IBM Plex Sans and Mono (woff2, OFL), self-hosted so the site makes no outside requests |
 
 ## How omen-audit.ps1 works
@@ -53,6 +57,10 @@ site on his subdomain. It stays local-first. Seller certification was discussed 
 
 **Open decisions (his):** product name ("DOA Kit" is a working title), license, subdomain, code signing
 certificate.
+
+**Hosting:** on Myprod (Sankalp's Nomad pool on Oracle ARM64; docs in github.com/blackdragoon26/Myprod). This
+repo is the "project agent" side only: build, publish, handoff. Registration and deploy are the operator's
+(Sankalp's) dashboard actions. Proposed app `doakit-site` at `doakit.sankalpjha.dev`. Steps: deploy/MYPROD.md.
 
 **Live preview of the site (private):** https://claude.ai/artifact/4k5aNmbJ6nzXibhgzvA5oQ
 (a copy built from `docs/`, with the page skeleton stripped for the artifact host).
