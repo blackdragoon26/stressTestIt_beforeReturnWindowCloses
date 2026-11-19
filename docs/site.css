@@ -49,8 +49,14 @@ main > *, article > * { min-width: 0; }
 }
 .mark { font: 600 14px/1 var(--mono); letter-spacing: 0.14em; text-decoration: none; }
 nav { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 15px; }
-nav a { text-decoration: none; color: var(--muted); }
-nav a:hover, nav a[aria-current] { color: var(--fg); }
+/* links in the header and footer: an underline that draws in from the left */
+nav a, footer .links a {
+  text-decoration: none; color: var(--muted); padding-bottom: 2px;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  transition: background-size .28s cubic-bezier(.2,.7,.2,1), color .2s;
+}
+nav a:hover, nav a[aria-current], footer .links a:hover { color: var(--fg); background-size: 100% 1px; }
+footer .links { display: flex; flex-wrap: wrap; gap: 4px 20px; }
 
 /* landing */
 section { padding: 52px 0 4px; }
@@ -69,7 +75,10 @@ h3 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
   background: var(--bg); color: var(--muted); border: 0; border-right: 1px solid var(--fg);
 }
 .os button:last-child { border-right: 0; }
+.os button { transition: background-color .2s, color .2s; }
+.os button:hover { color: var(--fg); background: var(--soft); }
 .os button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.os-panel:not([hidden]) { animation: swap .32s cubic-bezier(.2,.7,.2,1); }
 .os-panel .note { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
 
 /* code: a label bar on top carries the copy button, so it never covers the command */
@@ -93,9 +102,33 @@ pre, code { font-family: var(--mono); font-size: 13.5px; }
 .grid > div { padding: 18px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
 .grid p { margin: 0; color: var(--muted); font-size: 15px; }
 
-/* sample result */
-.result { border: 1px solid var(--fg); font: 13.5px/1.5 var(--mono); }
-.row { display: flex; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+/* the three questions */
+.qs { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--fg); }
+.qs li { border-bottom: 1px solid var(--rule); }
+.qs a {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 20px; align-items: center;
+  padding: 18px 12px; margin: 0 -12px; text-decoration: none;
+  transition: background-color .25s;
+}
+.qs .q { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+.qs .a { grid-column: 1; color: var(--muted); font-size: 15px; min-width: 0; }
+.qs .arrow { grid-column: 2; grid-row: 1 / span 2; font: 18px var(--mono); transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+.qs a:hover { background: var(--soft); }
+.qs a:hover .arrow { transform: translateX(6px); }
+
+/* sample result: a scan line sweeps down and each tag stamps as it passes */
+.result { position: relative; overflow: hidden; border: 1px solid var(--fg); font: 13.5px/1.5 var(--mono); }
+.result .code-bar span:last-child { color: var(--muted); }
+.result.run::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--fg);
+  animation: scan 1.5s .35s cubic-bezier(.45,0,.25,1) both;
+}
+.result.run .row:nth-of-type(2) .tag { animation: stamp .4s .55s both; }
+.result.run .row:nth-of-type(3) .tag { animation: stamp .4s .85s both; }
+.result.run .row:nth-of-type(4) .tag { animation: stamp .4s 1.15s both; }
+.result.run .row:nth-of-type(5) .tag { animation: stamp .4s 1.45s both; }
+.row { display: flex; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--rule); align-items: baseline; transition: background-color .2s; }
+.row:hover { background: var(--soft); }
 .row:last-child { border-bottom: 0; }
 .row > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .tag { flex: 0 0 48px; text-align: center; font-weight: 600; font-size: 12px; padding: 1px 0; }
@@ -130,4 +163,25 @@ article input[type="checkbox"] { accent-color: var(--fg); margin-right: 6px; }
 article .code { margin: 16px 0; }
 .status { color: var(--muted); }
 
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+/* motion: short, and every animated thing is readable before, during and after */
+.copy { transition: background-color .2s, color .2s, box-shadow .2s; }
+.copy:hover { background: var(--bg); color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+.hero h1, .hero .lead { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+.hero .lead { animation-delay: .08s; }
+.cmd { animation: rise .7s .14s cubic-bezier(.2,.7,.2,1) both; }
+.caret {
+  display: inline-block; width: .42em; height: .78em; margin-left: .1em; vertical-align: -0.04em;
+  background: var(--fg); animation: blink 1.1s steps(1) infinite;
+}
+article.in { animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+
+@keyframes rise  { from { transform: translateY(12px); } to { transform: none; } }
+@keyframes swap  { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes scan  { 0% { top: 0; opacity: 1; } 92% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+@keyframes stamp { 0% { transform: scale(1.3); } 60% { transform: scale(.94); } 100% { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .result.run::after { display: none; }
+}

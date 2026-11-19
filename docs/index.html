@@ -13,7 +13,6 @@
   <nav>
     <a href="docs.html#guide">Guide</a>
     <a href="docs.html#checks">Checks</a>
-    <a href="docs.html#profiles">Profiles</a>
     <a href="docs.html#trust">Trust</a>
     <a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses">GitHub</a>
   </nav>
@@ -21,12 +20,11 @@
 
 <main>
   <section class="hero">
-    <h1>Check your laptop before the return window closes.</h1>
-    <p class="lead">One command reads the hardware, firmware and logs. It tells you if this is the machine you
-      paid for, whether anyone tampered with it, and how much it was really used. You get a report to keep as proof.</p>
+    <h1>Check your laptop before the return window closes.<span class="caret" aria-hidden="true"></span></h1>
+    <p class="lead">One command. A report that says if it is the machine you paid for.</p>
   </section>
 
-  <section>
+  <section class="cmd">
     <div class="os" role="tablist" aria-label="Operating system">
       <button type="button" role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="true">Windows</button>
       <button type="button" role="tab" id="tab-linux" aria-controls="panel-linux" aria-selected="false">Linux</button>
@@ -35,96 +33,68 @@
 
     <div class="os-panel" role="tabpanel" id="panel-windows" aria-labelledby="tab-windows">
       <div class="code">
-        <div class="code-bar"><span>Terminal (Admin): press Win + X</span><button class="copy" type="button">Copy</button></div>
+        <div class="code-bar"><span>Terminal (Admin)</span><button class="copy" type="button">Copy</button></div>
 <pre><code>Set-ExecutionPolicy -Scope Process Bypass -Force
 Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
 Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
 cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 .\omen-audit.ps1</code></pre>
       </div>
-      <p class="note">Writes a PDF report. Add <code>-Monitor -Minutes 60</code> during stress tests and <code>-Quick</code> every evening.</p>
     </div>
 
     <div class="os-panel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" hidden>
       <div class="code">
-        <div class="code-bar"><span>Terminal, on the installed system or a live USB</span><button class="copy" type="button">Copy</button></div>
+        <div class="code-bar"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
 <pre><code>(curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz || wget -qO- https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz) | tar -xz -C ~
 cd ~/stressTestIt_beforeReturnWindowCloses-main
 sudo bash linux-live-audit.sh --install</code></pre>
       </div>
-      <p class="note">Writes an HTML report. Add <code>--stress</code> for a 15 minute verified CPU and memory test. From a live USB it checks a Windows laptop from outside Windows.</p>
     </div>
 
     <div class="os-panel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" hidden>
       <div class="code">
-        <div class="code-bar"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
+        <div class="code-bar"><span>Terminal &middot; experimental</span><button class="copy" type="button">Copy</button></div>
 <pre><code>curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz | tar -xz -C ~
 cd ~/stressTestIt_beforeReturnWindowCloses-main
 bash mac-audit.sh</code></pre>
       </div>
-      <p class="note">Experimental: not yet run on a real Mac. Writes an HTML report. For SSD hours, install smartmontools first.</p>
     </div>
 
-    <p class="fine">Read-only. Nothing installed unless you ask. Nothing uploaded. Open source.
-      <a href="docs.html#trust">Check the download first</a>.</p>
+    <p class="fine">Read-only. Nothing uploaded. Open source. <a href="docs.html#trust">Check the download</a></p>
   </section>
 
   <section>
-    <h2>What it checks</h2>
-    <div class="grid">
-      <div><h3>Identity</h3><p>Serial against your invoice, model, product number, board ID.</p></div>
-      <div><h3>Genuine parts</h3><p>CPU core count, GPU and its memory, RAM, SSD size, the panel's resolution, battery capacity.</p></div>
-      <div><h3>Prior use</h3><p>SSD power-on hours and terabytes written, read from the drive itself. Battery wear and cycles.</p></div>
-      <div><h3>Tampering</h3><p>Secure Boot and its keys, firmware passwords, company enrollment, Activation Lock on Macs.</p></div>
-      <div><h3>Stability</h3><p>Hardware errors, crashes, kernel panics, unexpected shutdowns, devices that vanished.</p></div>
-      <div><h3>Under load</h3><p>Sensor logs and verified stress tests: GPU dropouts, thermal brakes, memory errors.</p></div>
-    </div>
-    <p class="more"><a href="docs.html#checks">Every check and its rules</a></p>
-  </section>
-
-  <section>
-    <h2>A real result</h2>
-    <p>From the laptop this kit was tested on. Windows' own counters showed nothing for the SSD. The kit read the drive directly:</p>
-    <div class="result">
-      <div class="row"><span class="tag fail">FAIL</span><span>Unexpected shutdowns: 4 in 30 days. Latest 2026-11-11, 11-10, 11-07, 10-25</span></div>
-      <div class="row"><span class="tag warn">WARN</span><span>SSD health: power-on 19,278 h, written 72.21 TB, wear 100%, 207 unsafe shutdowns</span></div>
-      <div class="row"><span class="tag warn">WARN</span><span>Battery: 61% of design capacity, 1,833 cycles</span></div>
-      <div class="row"><span class="tag pass">PASS</span><span>CPU, GPU, display, RAM, Secure Boot keys, no company enrollment</span></div>
-    </div>
-    <p class="fine">The same numbers <code>smartctl</code> reads on Linux, matched to the hour.</p>
-  </section>
-
-  <section>
-    <h2>Platforms</h2>
-    <div class="matrix">
-      <table>
-        <tr><th></th><th>Windows</th><th>Linux</th><th>macOS</th></tr>
-        <tr><td>Specs against the profile</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
-        <tr><td>SSD hours and data written</td><td>Built in</td><td>smartctl</td><td>smartctl</td></tr>
-        <tr><td>Battery wear and cycles</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
-        <tr><td>Tampering</td><td>Secure Boot keys, HP BIOS password, MDM</td><td>Secure Boot keys, firmware security</td><td>Activation Lock, MDM and DEP, SIP, firmware password</td></tr>
-        <tr><td>Crash history</td><td>30 days of event logs</td><td>This boot's kernel log</td><td>30 days of panics and shutdowns</td></tr>
-        <tr><td>Under load</td><td>Sensor log during your tests</td><td>15 min verified stress test</td><td>Not yet</td></tr>
-        <tr><td>Report</td><td>PDF and HTML</td><td>HTML</td><td>HTML</td></tr>
-        <tr><td>Status</td><td>Tested</td><td>Tested</td><td>Experimental</td></tr>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <h2>Supported laptops</h2>
-    <p>Every laptop runs the health, tamper and prior-use checks. With a profile, every spec is also compared against what the maker promised.</p>
-    <ul class="plain">
-      <li>HP OMEN Transcend 16-u0005TX (834T6PA)</li>
-      <li>ASUS VivoBook 15 X515DA</li>
+    <ul class="qs">
+      <li><a href="docs.html#checks">
+        <span class="q">Is it the machine you paid for?</span>
+        <span class="a">Serial, CPU cores, GPU, RAM, SSD, screen and battery against the maker's spec.</span>
+        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
+      <li><a href="docs.html#checks">
+        <span class="q">Has anyone tampered with it?</span>
+        <span class="a">Secure Boot keys, firmware passwords, company enrollment, Activation Lock.</span>
+        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
+      <li><a href="docs.html#checks">
+        <span class="q">How much was it really used?</span>
+        <span class="a">SSD hours and terabytes written, read from the drive itself. Battery wear. Past crashes.</span>
+        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
     </ul>
-    <p class="more"><a href="docs.html#profiles">Add your laptop</a></p>
+  </section>
+
+  <section>
+    <div class="result run" id="result">
+      <div class="code-bar"><span>A real run &middot; ASUS VivoBook 15</span><span>4 of 46 results</span></div>
+      <div class="row"><span class="tag fail">FAIL</span><span>Unexpected shutdowns: 4 in 30 days</span></div>
+      <div class="row"><span class="tag warn">WARN</span><span>SSD: 19,278 hours, 72.21 TB written, wear 100%</span></div>
+      <div class="row"><span class="tag warn">WARN</span><span>Battery: 61% of design capacity, 1,833 cycles</span></div>
+      <div class="row"><span class="tag pass">PASS</span><span>CPU, GPU, screen, RAM, Secure Boot keys</span></div>
+    </div>
+    <p class="fine">Windows showed nothing for that SSD. The kit read the drive directly and matched Linux's <code>smartctl</code> to the hour.</p>
   </section>
 </main>
 
 <footer>
-  <span>Open source. Not affiliated with HP, ASUS, Apple or Microsoft.</span>
-  <a href="SHA256SUMS.txt">SHA256SUMS</a>
+  <span>Windows, Linux, macOS. Open source.</span>
+  <span class="links"><a href="docs.html#profiles">Profiles</a><a href="docs.html#omen-day">Worked example</a><a href="SHA256SUMS.txt">SHA256SUMS</a></span>
 </footer>
 
 <script>
@@ -155,6 +125,12 @@ bash mac-audit.sh</code></pre>
       }
       try { navigator.clipboard.writeText(code.innerText).then(done, selectInstead); } catch (e) { selectInstead(); }
     });
+  });
+
+  // Hovering the sample result runs the scan again
+  var result = document.getElementById('result');
+  result.addEventListener('mouseenter', function () {
+    result.classList.remove('run'); void result.offsetWidth; result.classList.add('run');
   });
 })();
 </script>

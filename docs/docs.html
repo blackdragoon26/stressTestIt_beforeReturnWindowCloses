@@ -16,7 +16,6 @@
   <nav>
     <a href="docs.html#guide">Guide</a>
     <a href="docs.html#checks">Checks</a>
-    <a href="docs.html#profiles">Profiles</a>
     <a href="docs.html#trust">Trust</a>
     <a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses">GitHub</a>
   </nav>
@@ -25,8 +24,8 @@
 <article id="doc"><p class="status">Loading...</p></article>
 
 <footer>
-  <span>Open source. Not affiliated with HP, ASUS or Microsoft.</span>
-  <a href="SHA256SUMS.txt">SHA256SUMS</a>
+  <span>Windows, Linux, macOS. Open source.</span>
+  <span class="links"><a href="docs.html#profiles">Profiles</a><a href="docs.html#omen-day">Worked example</a><a href="SHA256SUMS.txt">SHA256SUMS</a></span>
 </footer>
 
 <script>
@@ -59,6 +58,7 @@
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
       .then(function (md) {
         doc.innerHTML = marked.parse(md);
+        doc.classList.remove('in'); void doc.offsetWidth; doc.classList.add('in');   // gentle rise on every page
         var h1 = doc.querySelector('h1');
         if (h1) document.title = h1.textContent + ' - DOA Kit';
 
