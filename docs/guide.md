@@ -90,6 +90,119 @@ For SSD power-on hours, the best proof of prior use, install smartmontools first
 The macOS script is experimental. It was written without a Mac to test on, so if anything looks wrong, open
 an issue with the report.
 
+## Every command, ready to copy
+
+One block per command, each with its own Copy button. Run them inside the kit folder from the steps above.
+
+### Windows (admin PowerShell)
+
+Open the kit folder in a new window:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
+```
+
+Full audit:
+
+```powershell
+.\omen-audit.ps1
+```
+
+Full audit with the invoice serial, comparing against a known profile:
+
+```powershell
+.\omen-audit.ps1 -Laptop omen -InvoiceSerial PASTE-SERIAL-HERE
+```
+
+Generic mode (no spec comparison, every other check):
+
+```powershell
+.\omen-audit.ps1 -Laptop generic
+```
+
+Sensor log during a stress test (a second window; press Q to stop early):
+
+```powershell
+.\omen-audit.ps1 -Monitor -Minutes 60
+```
+
+A short monitor run to try it out:
+
+```powershell
+.\omen-audit.ps1 -Monitor -Minutes 2
+```
+
+Evening check (new errors since the last one):
+
+```powershell
+.\omen-audit.ps1 -Quick
+```
+
+Fingerprint of the script, to compare with SHA256SUMS.txt:
+
+```powershell
+(Get-FileHash .\omen-audit.ps1).Hash
+```
+
+### Linux (terminal, inside `~/stressTestIt_beforeReturnWindowCloses-main`)
+
+Full audit, installing the tools it needs first:
+
+```bash
+sudo bash linux-live-audit.sh --install
+```
+
+Full audit plus the 15 minute verified stress test:
+
+```bash
+sudo bash linux-live-audit.sh --stress
+```
+
+With the invoice serial and a known profile:
+
+```bash
+sudo bash linux-live-audit.sh --laptop omen --serial PASTE-SERIAL-HERE
+```
+
+Generic mode:
+
+```bash
+sudo bash linux-live-audit.sh --laptop generic
+```
+
+Fingerprints:
+
+```bash
+sha256sum linux-live-audit.sh lib/common.sh
+```
+
+### macOS (Terminal, inside `~/stressTestIt_beforeReturnWindowCloses-main`)
+
+Full audit:
+
+```bash
+bash mac-audit.sh
+```
+
+With the firmware password check (Intel Macs) and the invoice serial:
+
+```bash
+sudo bash mac-audit.sh --serial PASTE-SERIAL-HERE
+```
+
+Generic mode:
+
+```bash
+bash mac-audit.sh --laptop generic
+```
+
+Fingerprints:
+
+```bash
+shasum -a 256 mac-audit.sh lib/common.sh
+```
+
 ## Reading the result
 
 | Label | Meaning | What you do |
