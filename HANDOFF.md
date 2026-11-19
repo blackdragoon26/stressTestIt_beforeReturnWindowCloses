@@ -28,9 +28,9 @@ Runbook doc (day-by-day plan, pass criteria, results log): https://claude.ai/art
 
 - `linux-live-audit.sh`: Linux audit (identity, PCI, RAM, SSD SMART, fwupd HSI, kernel errors, battery,
   optional 15 min stress-ng). Expected values overridable by env vars (EXPECT_SKU, EXPECT_BOARD, EXPECT_CPU,
-  EXPECT_THREADS, EXPECT_GPU_REGEX, SSD_HOURS_WARN).
+  EXPECT_THREADS, EXPECT_GPU_REGEX, SSD_HOURS_WARN, EXPECT_PK_REGEX).
 - `omen-audit.ps1`: Windows audit, full mode and `-Quick` daily soak mode. Expected values are parameters
-  (-ExpectCpu, -ExpectCores, -ExpectThreads, -ExpectGpu, -ExpectRamModules, -ExpectRamGB, ...).
+  (-ExpectCpu, -ExpectCores, -ExpectThreads, -ExpectGpu, -ExpectRamModules, -ExpectRamGB, -ExpectPk, ...).
   NEVER RUN YET: it could not be parsed or tested in the cloud session.
 
 ## Test history
@@ -55,6 +55,14 @@ First run, 2026-11-19, with:
 - omen-audit.ps1: added -ExpectModel (the Model check was hardcoded to 'Transcend'). File is pure ASCII,
   which Windows PowerShell 5.1 needs. Still never run.
 
+- 2026-11-19, added after re-reading the original brief (genuineness, BIOS and boot tampering, upgrade room):
+  - Secure Boot Platform Key check in both scripts. FAIL on a leaked test key (PKfail, "DO NOT TRUST"),
+    WARN if the key is not the maker's (EXPECT_PK_REGEX / -ExpectPk, default HP). Tested on this ASUS's real key.
+  - Windows: BIOS setup and power-on password check through HP's BIOS WMI (root\HP\InstrumentedBIOS).
+    FAIL if set. Shows INFO on non-HP machines. Untested until it runs on the OMEN.
+  - Both: "RAM upgrade room" INFO line (slots, filled, firmware maximum).
+  - For the Linux re-run on this ASUS add EXPECT_PK_REGEX=ASUS.
+
 ## To do
 
 1. DONE: kernel_hw_errors.txt lines were noise; filter tuned (see above).
@@ -62,7 +70,7 @@ First run, 2026-11-19, with:
    Expected on this ASUS: FAIL Product number (no SKU), WARN Board ID, WARN RAM matched pair,
    WARN Battery, WARN SSD power-on hours, maybe WARN Radio firmware errors. stress-ng should PASS.
 3. When this machine is booted into Windows, run omen-audit.ps1 with overrides for this hardware and fix what breaks:
-   `.\omen-audit.ps1 -ExpectProductNumber X515DA -ExpectModel VivoBook -ExpectBoardId X515DA -ExpectCpu 3500U -ExpectCores 4 -ExpectThreads 8 -ExpectGpu 'Radeon' -ExpectRamModules 2 -ExpectRamGB 8`
+   `.\omen-audit.ps1 -ExpectProductNumber X515DA -ExpectModel VivoBook -ExpectBoardId X515DA -ExpectCpu 3500U -ExpectCores 4 -ExpectThreads 8 -ExpectGpu 'Radeon' -ExpectRamModules 2 -ExpectRamGB 8 -ExpectPk ASUS`
    then `.\omen-audit.ps1 -Quick -ExpectGpu 'Radeon'`.
 4. Add a LICENSE if Sankalp wants the repo public.
 

@@ -22,6 +22,7 @@ EXPECT_CPU="${EXPECT_CPU:-13700HX}"
 EXPECT_THREADS="${EXPECT_THREADS:-24}"
 EXPECT_GPU_REGEX="${EXPECT_GPU_REGEX:-RTX 4070|AD106M}"
 SSD_HOURS_WARN="${SSD_HOURS_WARN:-100}"
+EXPECT_PK_REGEX="${EXPECT_PK_REGEX:-HP|Hewlett}"   # who should own the Secure Boot Platform Key
 
 INSTALL=0
 STRESS=0
@@ -100,6 +101,11 @@ if have dmidecode; then
   parts=$(grep -E '^\s+Part Number:' "$OUT/memory.txt" | grep -v 'Not Specified' | sort -u | wc -l)
   result INFO "RAM" "$mods module(s); $(grep -E '^\s+(Manufacturer|Part Number|Configured Memory Speed):' "$OUT/memory.txt" | grep -v Unknown | sort -u | sed 's/^\s*//' | tr '\n' ';')"
   [ "$parts" -gt 1 ] && result WARN "RAM matched pair" "different part numbers found"
+  # Upgrade room: slots on the board, how many are filled, and the firmware's stated maximum
+  slots=$(grep -m1 'Number Of Devices:' "$OUT/memory.txt" | awk '{print $NF}')
+  maxcap=$(grep -m1 'Maximum Capacity:' "$OUT/memory.txt" | cut -d: -f2- | xargs)
+  empty=$(grep -cE '^\s+Size: No Module Installed' "$OUT/memory.txt")
+  result INFO "RAM upgrade room" "${slots:-?} slot(s), $mods filled, $empty empty, firmware max ${maxcap:-?}"
 fi
 
 # ---------- SSD ----------
@@ -133,6 +139,19 @@ fi
 if have mokutil; then
   sb=$(mokutil --sb-state 2>&1 | head -1)
   if echo "$sb" | grep -qi enabled; then result PASS "Secure Boot" "$sb"; else result FAIL "Secure Boot" "$sb"; fi
+  # The Platform Key (PK) is the root of Secure Boot. It should belong to the laptop maker.
+  # "DO NOT TRUST" / "DO NOT SHIP" means a leaked test key (PKfail, 2024): anyone can sign boot code.
+  { echo "== PK =="; mokutil --pk; echo; echo "== KEK =="; mokutil --kek; } > "$OUT/secureboot_keys.txt" 2>&1
+  pk=$(mokutil --pk 2>/dev/null | grep -m1 'Subject:' | sed 's/^\s*Subject:\s*//')
+  if grep -qiE 'DO NOT (TRUST|SHIP)' "$OUT/secureboot_keys.txt"; then
+    result FAIL "Secure Boot keys" "test key found (PKfail), see secureboot_keys.txt"
+  elif [ -z "$pk" ]; then
+    result WARN "Secure Boot keys" "no Platform Key readable (setup mode or keys cleared), see secureboot_keys.txt"
+  elif echo "$pk" | grep -qiE "$EXPECT_PK_REGEX"; then
+    result PASS "Secure Boot keys" "PK: $pk"
+  else
+    result WARN "Secure Boot keys" "PK: $pk, expected '$EXPECT_PK_REGEX'. Custom keys? Check BIOS"
+  fi
 fi
 [ -d /sys/firmware/efi ] && result PASS "Boot mode" "UEFI" || result FAIL "Boot mode" "legacy BIOS"
 
