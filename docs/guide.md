@@ -133,6 +133,23 @@ A short monitor run to try it out:
 .\omen-audit.ps1 -Monitor -Minutes 2
 ```
 
+Playing a video, even 4K gameplay, is not a load test: the graphics chip decodes it and the CPU stays mostly
+idle. To try the monitor under real load without installing anything, run this in a **third** window. It
+keeps every CPU core at 100% until you stop it:
+
+```powershell
+1..[Environment]::ProcessorCount | ForEach-Object { Start-Job { while ($true) {} } } | Out-Null
+```
+
+Stop the load:
+
+```powershell
+Get-Job | Stop-Job; Get-Job | Remove-Job
+```
+
+For a real stress test use OCCT, Cinebench or a demanding game. The monitor keeps the laptop awake while it
+runs. If the lid is closed anyway, the report shows the gap and whether the laptop slept.
+
 Evening check (new errors since the last one):
 
 ```powershell

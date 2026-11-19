@@ -332,8 +332,24 @@ elseif ($Monitor) {
     $end = $start.AddMinutes($Minutes)
     $nextPrint = $start
 
+    # Keep Windows from sleeping while the monitor runs (seen on the ASUS: a 60 min run slept after 25 min).
+    # Closing the lid or pressing the power button still sleeps; the gap check below reports that.
+    try {
+        if (-not ('MonitorAwake' -as [type])) {
+            Add-Type -Namespace '' -Name MonitorAwake -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
+        }
+        [void][MonitorAwake]::SetThreadExecutionState([uint32]2147483651)   # 0x80000003: continuous + system + display
+    } catch { }
+    $gaps = New-Object System.Collections.Generic.List[object]
+    $prevTick = $null
+
     while ((Get-Date) -lt $end) {
         $tick = Get-Date
+        # A long pause between samples means the laptop slept or the system stopped responding
+        if ($prevTick -and ($tick - $prevTick).TotalSeconds -gt [math]::Max(30, 10 * $IntervalSec)) {
+            $gaps.Add([pscustomobject]@{ From = $prevTick; To = $tick; Minutes = [math]::Round(($tick - $prevTick).TotalMinutes, 1) })
+        }
+        $prevTick = $tick
         $r = [ordered]@{}
         foreach ($c in $cols) { $r[$c] = '' }
         $r.Time = $tick.ToString('yyyy-MM-dd HH:mm:ss')
@@ -376,9 +392,12 @@ elseif ($Monitor) {
         Add-Content -Path $csv -Value (($cols | ForEach-Object { "$($r[$_])" }) -join ',') -Encoding ascii
 
         if ($tick -ge $nextPrint) {
-            Write-Host ('{0,5}s  CPU {1} MHz, load {2}%, limit {3}%, zone {4} C  |  GPU {5} C, {6} W, {7} MHz, load {8}%' -f
-                $r.Elapsed_s, $r.CpuClock_MHz, $r.CpuUtil_pct, $r.CpuPerfLimit_pct, $r.ThermalZoneMax_C,
-                $r.GpuTemp_C, $r.GpuPower_W, $r.GpuClock_MHz, $r.GpuUtil_pct)
+            $line = '{0,5}s  CPU {1} MHz, load {2}%, limit {3}%, zone {4} C' -f
+                $r.Elapsed_s, $r.CpuClock_MHz, $r.CpuUtil_pct, $r.CpuPerfLimit_pct, $r.ThermalZoneMax_C
+            if ($gpuFields) {
+                $line += '  |  GPU {0} C, {1} W, {2} MHz, load {3}%' -f $r.GpuTemp_C, $r.GpuPower_W, $r.GpuClock_MHz, $r.GpuUtil_pct
+            }
+            Write-Host $line
             $nextPrint = $tick.AddSeconds(30)
         }
 
@@ -389,9 +408,22 @@ elseif ($Monitor) {
         if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
     }
 
+    try { [void][MonitorAwake]::SetThreadExecutionState([uint32]2147483648) } catch { }   # 0x80000000: sleep allowed again
+
     # ---------- what the log says ----------
     $n = $rows.Count
-    Add-Result 'INFO' 'Samples' "$n over $([math]::Round(((Get-Date) - $start).TotalMinutes, 1)) min, saved sensors.csv"
+    $covered = [math]::Round($n * $IntervalSec / 60, 1)
+    Add-Result 'INFO' 'Samples' "$n over $([math]::Round(((Get-Date) - $start).TotalMinutes, 1)) min (about $covered min logged), saved sensors.csv"
+    foreach ($g in $gaps) {
+        # Kernel-Power 42 = entering sleep, 107 = resumed from sleep
+        $slept = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 42, 107; StartTime = $g.From.AddSeconds(-5); EndTime = $g.To.AddSeconds(5) } -ErrorAction SilentlyContinue)
+        $when = "$($g.From.ToString('HH:mm:ss')) to $($g.To.ToString('HH:mm:ss'))"
+        if ($slept.Count -gt 0) {
+            Add-Result 'WARN' 'Monitor gap' "logging paused $($g.Minutes) min ($when): the laptop slept (lid closed or sleep button). Those minutes are not covered; run again"
+        } else {
+            Add-Result 'WARN' 'Monitor gap' "logging paused $($g.Minutes) min ($when) with no sleep in the event log: the system may have stopped responding. Check event_errors.csv and run again"
+        }
+    }
     $late = @($rows | Select-Object -Skip ([int][math]::Floor($n / 2)))   # second half = sustained behaviour
 
     $onBat = @($rows | Where-Object { "$($_.OnAC)" -eq '0' })
@@ -500,14 +532,16 @@ else {
     }
     Add-Result 'INFO' 'BIOS version' "$($bios.SMBIOSBIOSVersion) ($($bios.ReleaseDate))"
 
-    if (-not (Test-Spec 'ProductNumber')) { Add-Result 'INFO' 'Product number' "'$("$($cs.SystemSKUNumber)".Trim())'" }
+    $sku = "$($cs.SystemSKUNumber)".Trim()
+    $skuText = if ($sku) { $sku } else { '(none stored)' }
+    if (-not (Test-Spec 'ProductNumber')) { Add-Result 'INFO' 'Product number' $skuText }
     elseif (-not $Expect.ProductNumber) { Add-Result 'INFO' 'Product number' "this model's firmware stores none" }
-    elseif ($cs.SystemSKUNumber -match $Expect.ProductNumber) { Add-Result 'PASS' 'Product number' $cs.SystemSKUNumber }
-    else { Add-Result 'FAIL' 'Product number' "got '$($cs.SystemSKUNumber)', expected $($Expect.ProductNumber)" }
+    elseif ($sku -match $Expect.ProductNumber) { Add-Result 'PASS' 'Product number' $sku }
+    else { Add-Result 'FAIL' 'Product number' "got $skuText, expected $($Expect.ProductNumber)" }
 
     if (-not (Test-Spec 'Model')) { Add-Result 'INFO' 'Model' "$($cs.Manufacturer) $($cs.Model)" }
     elseif ($cs.Model -match $Expect.Model) { Add-Result 'PASS' 'Model' $cs.Model }
-    else { Add-Result 'FAIL' 'Model' "got '$($cs.Model)'" }
+    else { Add-Result 'FAIL' 'Model' "got '$($cs.Model)', expected $($Expect.Model)" }
 
     if (-not (Test-Spec 'BoardId')) { Add-Result 'INFO' 'Board ID' $bb.Product }
     elseif ($bb.Product -eq $Expect.BoardId) { Add-Result 'PASS' 'Board ID' $bb.Product }

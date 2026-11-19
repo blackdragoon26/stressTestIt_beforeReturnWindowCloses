@@ -99,6 +99,13 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   - WARN: the battery (61%, 1,833 cycles)
 - `linux-live-audit.sh` (profile-aware rewrite) verified with sudo on the ASUS, 2026-11-19.
 
+- **Third Windows run on the ASUS (2026-11-19):** all five modes ran with the profile files: full (serial PASS
+  via `-InvoiceSerial`), `-Laptop omen` (10 FAIL, 8 WARN: swapped-machine detection works), `-Laptop generic`,
+  `-Quick`, `-Monitor`. The reports' script hash `cfaa5f48...` matched commit 6d1fe68. Fixed after it: the
+  monitor now keeps Windows awake (SetThreadExecutionState) and reports gaps (a 60 min run slept after 25 min),
+  checking Kernel-Power 42/107 to tell sleep from a possible freeze; no empty GPU fields in the progress line
+  without NVIDIA; FAIL Model shows the expected value; empty product number reads "(none stored)".
+
 ## To do
 
 1. **Before the OMEN arrives (about 2026-11-26):**
