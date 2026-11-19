@@ -6,6 +6,11 @@
   Full mode (default): identity, genuineness, health, security, drivers, event logs.
   -Quick mode: event-log check only (WHEA, unexpected shutdowns, bugchecks, GPU driver
   resets, disk errors) since the last quick run. Use it every evening during the soak.
+  -Monitor mode: sensor log for a stress test. Run it in a second window while OCCT or a
+  game runs. Logs CPU and GPU clocks, load, temperatures and GPU power to sensors.csv
+  every few seconds, then flags GPU dropouts, hardware slowdowns, low sustained GPU power,
+  running on battery, and any new errors from the event log during the run.
+  Fan speed and CPU package power are not exposed by Windows itself: use HWiNFO for those.
 
   Every run writes a timestamped folder under .\reports with a SUMMARY.txt and a
   SHA256 manifest of all files, so the evidence can be shown to be unchanged later.
@@ -15,10 +20,17 @@
     Set-ExecutionPolicy -Scope Process Bypass -Force
     .\omen-audit.ps1
     .\omen-audit.ps1 -Quick
+    .\omen-audit.ps1 -Monitor -Minutes 60
 #>
 [CmdletBinding()]
 param(
     [switch]$Quick,
+    [switch]$Monitor,
+    [int]$Minutes = 60,         # -Monitor: how long to log
+    [int]$IntervalSec = 2,      # -Monitor: seconds between samples
+    [int]$GpuTempWarn = 87,     # -Monitor: WARN at or above this GPU temperature (C)
+    [int]$GpuMinWatts = 95,     # -Monitor: WARN if sustained GPU power under full load is below this
+                                #   (LaptopMedia measured about 109 W after 30 min on this model)
     [string]$OutRoot = (Join-Path $PSScriptRoot 'reports'),
     [int]$EventDays = 30,
     # Expected values. Defaults are the HP OMEN Transcend 16-u0005TX; override for other machines.
@@ -62,7 +74,11 @@ if (-not $isAdmin) {
 }
 
 $stamp  = Get-Date -Format 'yyyyMMdd_HHmmss'
-$mode   = if ($Quick) { 'quick' } else { 'full' }
+if ($Quick -and $Monitor) {
+    Write-Host 'Use -Quick or -Monitor, not both.' -ForegroundColor Red
+    exit 1
+}
+$mode   = if ($Quick) { 'quick' } elseif ($Monitor) { 'monitor' } else { 'full' }
 $OutDir = Join-Path $OutRoot "$($env:COMPUTERNAME)_$($mode)_$stamp"
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 Start-Transcript -Path (Join-Path $OutDir 'transcript.txt') | Out-Null
@@ -146,6 +162,178 @@ if ($Quick) {
     }
     Test-EventLogs -Since $since
     (Get-Date).ToString('o') | Out-File $marker -Encoding ascii
+}
+elseif ($Monitor) {
+    Section "Sensor monitor: $Minutes min, a sample every $IntervalSec s"
+    Write-Host 'Start the stress test (OCCT, a game, a benchmark) now. Press Q in this window to stop early.'
+    $start = Get-Date
+    $csv   = Join-Path $OutDir 'sensors.csv'
+
+    function ConvertTo-Num([string]$s) {
+        if ($null -eq $s) { return $null }
+        $d = 0.0
+        if ([double]::TryParse($s.Trim(), [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$d)) { return $d }
+        return $null
+    }
+    function Get-Median($vals) {
+        $s = @($vals | Where-Object { "$_" -ne '' } | ForEach-Object { [double]$_ } | Sort-Object)
+        if ($s.Count -eq 0) { return $null }
+        return $s[[int][math]::Floor(($s.Count - 1) / 2)]
+    }
+
+    # CPU: Windows performance counters, built in. Real clock = base clock x "% Processor Performance".
+    # "% Performance Limit" under 100 means the firmware is holding the CPU back (heat or power).
+    $baseMHz = (Get-CimInstance Win32_Processor | Select-Object -First 1).MaxClockSpeed
+    $wanted = @(
+        '\Processor Information(_Total)\% Processor Utility',
+        '\Processor Information(_Total)\% Processor Performance',
+        '\Processor Information(_Total)\% Performance Limit',
+        '\Thermal Zone Information(*)\Temperature'
+    )
+    $counters = @($wanted | Where-Object {
+        try { $null = Get-Counter -Counter $_ -MaxSamples 1 -ErrorAction Stop; $true } catch { $false }
+    })
+    $missing = @($wanted | Where-Object { $counters -notcontains $_ })
+    if ($missing.Count -gt 0) { Add-Result 'INFO' 'CPU counters missing' ($missing -join '; ') }
+
+    # GPU: nvidia-smi comes with the NVIDIA driver. Newer drivers renamed the slowdown-reason field.
+    $smi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+    if (-not $smi -and (Test-Path 'C:\Windows\System32\nvidia-smi.exe')) { $smi = 'C:\Windows\System32\nvidia-smi.exe' }
+    $gpuFields = $null
+    if ($smi) {
+        foreach ($reason in 'clocks_event_reasons.active', 'clocks_throttle_reasons.active') {
+            $f = "temperature.gpu,power.draw,clocks.gr,clocks.mem,utilization.gpu,pstate,$reason"
+            $null = & $smi "--query-gpu=$f" --format=csv,noheader,nounits 2>&1
+            if ($LASTEXITCODE -eq 0) { $gpuFields = $f; break }
+        }
+    }
+    if (-not $gpuFields) { Add-Result 'INFO' 'GPU sensors' 'nvidia-smi not available. Install the NVIDIA driver, then rerun' }
+
+    $cols = 'Time', 'Elapsed_s', 'OnAC', 'CpuUtil_pct', 'CpuClock_MHz', 'CpuPerfLimit_pct', 'ThermalZoneMax_C',
+            'GpuTemp_C', 'GpuPower_W', 'GpuClock_MHz', 'GpuMemClock_MHz', 'GpuUtil_pct', 'GpuPState', 'GpuLimitReasons'
+    Set-Content -Path $csv -Value ($cols -join ',') -Encoding ascii
+    $rows = New-Object System.Collections.Generic.List[object]
+    $end = $start.AddMinutes($Minutes)
+    $nextPrint = $start
+
+    while ((Get-Date) -lt $end) {
+        $tick = Get-Date
+        $r = [ordered]@{}
+        foreach ($c in $cols) { $r[$c] = '' }
+        $r.Time = $tick.ToString('yyyy-MM-dd HH:mm:ss')
+        $r.Elapsed_s = [int](($tick - $start).TotalSeconds)
+
+        # BatteryStatus 1 = discharging (on battery). Anything else = on the charger.
+        $bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($bat) { $r.OnAC = [int]($bat.BatteryStatus -ne 1) }
+
+        if ($counters.Count -gt 0) {
+            $samples = (Get-Counter -Counter $counters -MaxSamples 1 -ErrorAction SilentlyContinue).CounterSamples
+            foreach ($c in $samples) {
+                if ($c.Path -like '*% processor utility') { $r.CpuUtil_pct = [math]::Round($c.CookedValue, 1) }
+                elseif ($c.Path -like '*% processor performance') { $r.CpuClock_MHz = [math]::Round($baseMHz * $c.CookedValue / 100) }
+                elseif ($c.Path -like '*% performance limit') { $r.CpuPerfLimit_pct = [math]::Round($c.CookedValue, 1) }
+            }
+            # Thermal zones report Kelvin
+            $tz = @($samples | Where-Object { $_.Path -like '*thermal zone information*' -and $_.CookedValue -gt 0 } |
+                ForEach-Object { $_.CookedValue - 273.15 })
+            if ($tz.Count -gt 0) { $r.ThermalZoneMax_C = [math]::Round(($tz | Measure-Object -Maximum).Maximum, 1) }
+        }
+
+        if ($gpuFields) {
+            $out  = @(& $smi "--query-gpu=$gpuFields" --format=csv,noheader,nounits 2>$null)
+            $smiOk = ($LASTEXITCODE -eq 0)
+            $v = @("$($out | Select-Object -First 1)" -split ',\s*')
+            if ($smiOk -and $v.Count -ge 7) {
+                $r.GpuTemp_C       = ConvertTo-Num $v[0]
+                $r.GpuPower_W      = ConvertTo-Num $v[1]
+                $r.GpuClock_MHz    = ConvertTo-Num $v[2]
+                $r.GpuMemClock_MHz = ConvertTo-Num $v[3]
+                $r.GpuUtil_pct     = ConvertTo-Num $v[4]
+                $r.GpuPState       = $v[5].Trim()
+                $r.GpuLimitReasons = $v[6].Trim()
+            }
+        }
+
+        # Written row by row, so the log survives even if the laptop crashes mid-test
+        $rows.Add([pscustomobject]$r)
+        Add-Content -Path $csv -Value (($cols | ForEach-Object { "$($r[$_])" }) -join ',') -Encoding ascii
+
+        if ($tick -ge $nextPrint) {
+            Write-Host ('{0,5}s  CPU {1} MHz, load {2}%, limit {3}%, zone {4} C  |  GPU {5} C, {6} W, {7} MHz, load {8}%' -f
+                $r.Elapsed_s, $r.CpuClock_MHz, $r.CpuUtil_pct, $r.CpuPerfLimit_pct, $r.ThermalZoneMax_C,
+                $r.GpuTemp_C, $r.GpuPower_W, $r.GpuClock_MHz, $r.GpuUtil_pct)
+            $nextPrint = $tick.AddSeconds(30)
+        }
+
+        $stop = $false
+        try { while ([Console]::KeyAvailable) { if ([Console]::ReadKey($true).Key -eq 'Q') { $stop = $true } } } catch { }
+        if ($stop) { Write-Host 'Stopped early.'; break }
+        $wait = $IntervalSec - ((Get-Date) - $tick).TotalSeconds
+        if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
+    }
+
+    # ---------- what the log says ----------
+    $n = $rows.Count
+    Add-Result 'INFO' 'Samples' "$n over $([math]::Round(((Get-Date) - $start).TotalMinutes, 1)) min, saved sensors.csv"
+    $late = @($rows | Select-Object -Skip ([int][math]::Floor($n / 2)))   # second half = sustained behaviour
+
+    $onBat = @($rows | Where-Object { "$($_.OnAC)" -eq '0' })
+    if ($onBat.Count -gt 0) { Add-Result 'WARN' 'Power source' "$($onBat.Count) of $n samples on battery. Stress tests must run on the HP charger" }
+
+    if ($gpuFields) {
+        $noGpu = @($rows | Where-Object { "$($_.GpuTemp_C)" -eq '' })
+        if ($noGpu.Count -gt 0) { Add-Result 'FAIL' 'GPU readings' "$($noGpu.Count) of $n samples had no GPU reading. Possible GPU dropout: check Device Manager and event_errors.csv" }
+        else { Add-Result 'PASS' 'GPU readings' "GPU answered in all $n samples" }
+
+        $temps = @($rows | Where-Object { "$($_.GpuTemp_C)" -ne '' } | ForEach-Object { [double]$_.GpuTemp_C })
+        if ($temps.Count -gt 0) {
+            $gmax = ($temps | Measure-Object -Maximum).Maximum
+            if ($gmax -ge $GpuTempWarn) { Add-Result 'WARN' 'GPU max temperature' "$gmax C (warn at $GpuTempWarn C)" }
+            else { Add-Result 'PASS' 'GPU max temperature' "$gmax C" }
+        }
+
+        $loaded = @($late | Where-Object { "$($_.GpuUtil_pct)" -ne '' -and [double]$_.GpuUtil_pct -ge 90 })
+        if ($loaded.Count -ge 5) {
+            $p = Get-Median ($loaded | ForEach-Object { $_.GpuPower_W })
+            $c = Get-Median ($loaded | ForEach-Object { $_.GpuClock_MHz })
+            if ($null -ne $p -and $p -lt $GpuMinWatts) {
+                Add-Result 'WARN' 'GPU sustained power' "median $p W at $c MHz under full load, expected at least $GpuMinWatts W. Check Performance mode and the HP charger; if both are right, suspect cooling"
+            } else {
+                Add-Result 'PASS' 'GPU sustained power' "median $p W at $c MHz under full load (LaptopMedia: about 109 W, 2280 MHz after 30 min)"
+            }
+        } else {
+            Add-Result 'INFO' 'GPU sustained power' 'GPU was not under full load in the second half. Run a GPU test (OCCT 3D, a game) during the monitor'
+        }
+
+        # Hardware slowdown bits: 0x8 HW slowdown, 0x40 HW thermal slowdown, 0x80 HW power brake.
+        # 0x4 (software power cap) is normal under load and is ignored.
+        $hwSlow = @($rows | Where-Object {
+            $x = "$($_.GpuLimitReasons)"
+            ($x -match '^0x[0-9a-fA-F]+$') -and (([Convert]::ToUInt64($x.Substring(2), 16) -band 0xC8) -ne 0)
+        })
+        if ($hwSlow.Count -gt 0) { Add-Result 'WARN' 'GPU hardware slowdown' "$($hwSlow.Count) of $n samples. Hardware thermal or power brake: a cooling or charger problem, record it" }
+        else { Add-Result 'PASS' 'GPU hardware slowdown' 'none' }
+    }
+
+    $cpuLoaded = @($late | Where-Object { "$($_.CpuUtil_pct)" -ne '' -and [double]$_.CpuUtil_pct -ge 90 })
+    if ($cpuLoaded.Count -ge 5) {
+        $clk = Get-Median ($cpuLoaded | ForEach-Object { $_.CpuClock_MHz })
+        $lim = Get-Median ($cpuLoaded | ForEach-Object { $_.CpuPerfLimit_pct })
+        Add-Result 'INFO' 'CPU sustained clock' "median $clk MHz across all cores under full load (E-cores included, so below the P-core figure of about 3000 MHz), firmware limit median $lim% (100 = not limited)"
+    } else {
+        Add-Result 'INFO' 'CPU sustained clock' 'CPU was not under full load in the second half'
+    }
+
+    $zones = @($rows | Where-Object { "$($_.ThermalZoneMax_C)" -ne '' } | ForEach-Object { [double]$_.ThermalZoneMax_C })
+    if ($zones.Count -gt 0) {
+        $zmax = ($zones | Measure-Object -Maximum).Maximum
+        if ($zmax -ge 100) { Add-Result 'WARN' 'Thermal zone max' "$zmax C. The CPU throttles at 100 C" }
+        else { Add-Result 'INFO' 'Thermal zone max' "$zmax C (board sensor, not the exact CPU core temperature: HWiNFO shows that)" }
+    }
+
+    # Anything that broke while the test ran
+    Test-EventLogs -Since $start
 }
 else {
     # ---------- 1. identity ----------

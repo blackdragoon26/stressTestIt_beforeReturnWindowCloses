@@ -24,6 +24,12 @@ Runbook doc (day-by-day plan, pass criteria, results log): https://claude.ai/art
 | Battery | 97 Wh, full charge at least 95% of design, single-digit cycles |
 | Sustained baseline (LaptopMedia) | GPU about 2280 MHz at 109W after 30 min gaming; CPU about 3.0 GHz P-core at 82C |
 
+## Platform
+
+The OMEN will run Windows only. omen-audit.ps1 is the main deliverable; linux-live-audit.sh is an optional
+second opinion. The Linux laptop this repo is developed on is only a workbench. It also runs other remote
+workloads: install nothing system-wide, touch only this repo.
+
 ## Files
 
 - `linux-live-audit.sh`: Linux audit (identity, PCI, RAM, SSD SMART, fwupd HSI, kernel errors, battery,
@@ -62,6 +68,9 @@ First run, 2026-11-19, with:
     FAIL if set. Shows INFO on non-HP machines. Untested until it runs on the OMEN.
   - Both: "RAM upgrade room" INFO line (slots, filled, firmware maximum).
   - For the Linux re-run on this ASUS add EXPECT_PK_REGEX=ASUS.
+- 2026-11-19: omen-audit.ps1 -Monitor mode (sensor log during stress tests, sensors.csv, built-in sources
+  only: nvidia-smi and Windows performance counters). README rewritten as Windows step-by-step.
+  Checked bracket and quote balance with a script; PowerShell itself could not be run on this machine.
 
 ## To do
 
@@ -69,7 +78,9 @@ First run, 2026-11-19, with:
 2. Re-run the Linux script with the same overrides and confirm only expected FAIL/WARN remain.
    Expected on this ASUS: FAIL Product number (no SKU), WARN Board ID, WARN RAM matched pair,
    WARN Battery, WARN SSD power-on hours, maybe WARN Radio firmware errors. stress-ng should PASS.
-3. When this machine is booted into Windows, run omen-audit.ps1 with overrides for this hardware and fix what breaks:
+3. FIRST REAL TEST: parse and run omen-audit.ps1 on any Windows machine (full, -Quick, and
+   -Monitor -Minutes 2 while something loads the CPU). It has never been executed.
+   When this machine is booted into Windows, run omen-audit.ps1 with overrides for this hardware and fix what breaks:
    `.\omen-audit.ps1 -ExpectProductNumber X515DA -ExpectModel VivoBook -ExpectBoardId X515DA -ExpectCpu 3500U -ExpectCores 4 -ExpectThreads 8 -ExpectGpu 'Radeon' -ExpectRamModules 2 -ExpectRamGB 8 -ExpectPk ASUS`
    then `.\omen-audit.ps1 -Quick -ExpectGpu 'Radeon'`.
 4. Add a LICENSE if Sankalp wants the repo public.
