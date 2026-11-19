@@ -408,6 +408,12 @@ elseif ($Monitor) {
         if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
     }
 
+    # A pause after the last sample counts too: the loop ends on waking when the time is already up
+    # (seen on the ASUS: samples stopped at 25 min, the laptop slept 47 min, the run ended on wake)
+    if (-not $stop -and $prevTick -and ((Get-Date) - $prevTick).TotalSeconds -gt [math]::Max(30, 10 * $IntervalSec)) {
+        $now = Get-Date
+        $gaps.Add([pscustomobject]@{ From = $prevTick; To = $now; Minutes = [math]::Round(($now - $prevTick).TotalMinutes, 1) })
+    }
     try { [void][MonitorAwake]::SetThreadExecutionState([uint32]2147483648) } catch { }   # 0x80000000: sleep allowed again
 
     # ---------- what the log says ----------
@@ -989,6 +995,7 @@ table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 th, td { border: 1px solid #ccc; padding: 2px 4px; text-align: left; vertical-align: top; word-wrap: break-word; }
 th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wrap: break-word; background: #fafafa; border: 1px solid #ddd; padding: 4px; }
 .muted { color: #666; } .ct { font-weight: bold; margin-top: 8px; }
+.chart { break-inside: avoid; page-break-inside: avoid; }
 .FAIL { background: #ffd7d7; } .WARN { background: #fff3c4; } .PASS { background: #dff5df; }
 .box { padding: 6px; border: 1px solid #999; margin: 6px 0; font-size: 12px; }
 * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1006,8 +1013,10 @@ th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wr
     }
     [void]$h.Append('</table>')
 
-    [void]$h.Append('<h2>Expected values for this profile</h2>')
-    [void]$h.Append((ConvertTo-HtmlTable ($Expect.GetEnumerator() | Sort-Object Name | ForEach-Object { [pscustomobject]@{ Item = $_.Name; Expected = (@($_.Value) -join '; ') } })))
+    if ($mode -eq 'full') {   # the spec comparison only happens in the full audit
+        [void]$h.Append('<h2>Expected values for this profile</h2>')
+        [void]$h.Append((ConvertTo-HtmlTable ($Expect.GetEnumerator() | Sort-Object Name | ForEach-Object { [pscustomobject]@{ Item = $_.Name; Expected = (@($_.Value) -join '; ') } })))
+    }
 
     $sensorCsv = Join-Path $OutDir 'sensors.csv'
     if (Test-Path $sensorCsv) {
@@ -1016,7 +1025,7 @@ th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wr
             [void]$h.Append('<h2>Sensor charts</h2>')
             $xs = @($sr | ForEach-Object { $_.Elapsed_s })
             foreach ($pair in @(@('GpuTemp_C', 'GPU temperature', 'C'), @('GpuPower_W', 'GPU power', 'W'), @('GpuClock_MHz', 'GPU clock', 'MHz'),
-                                @('GpuUtil_pct', 'GPU load', '%'), @('CpuClock_MHz', 'CPU clock, all cores', 'MHz'), @('CpuUtil_pct', 'CPU load', '%'),
+                                @('GpuUtil_pct', 'GPU load', '%'), @('CpuClock_MHz', 'CPU clock, all cores', 'MHz'), @('CpuUtil_pct', 'CPU load, measured against the base clock (turbo goes above 100)', '%'),
                                 @('CpuPerfLimit_pct', 'CPU firmware limit', '%'), @('ThermalZoneMax_C', 'Board thermal zone', 'C'))) {
                 [void]$h.Append((New-SvgChart $pair[1] $xs @($sr | ForEach-Object { $_.($pair[0]) }) $pair[2]))
             }
