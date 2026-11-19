@@ -3,8 +3,9 @@
 A Windows script that finds faults in a new or open-box HP OMEN Transcend 16 (16-u0005TX, 834T6PA)
 inside the dead-on-arrival (DOA) return window, and saves evidence for the claim.
 
-Full plan (day by day, which stress tools, pass criteria, results log): the
-"OMEN Transcend 16 DOA Test Runbook" doc. This README is how to run the script.
+It knows what the laptop is supposed to have, checks it by itself, and writes a PDF report you can share.
+The full plan (day by day, stress tools, pass criteria, results log) is in the "OMEN Transcend 16 DOA Test
+Runbook" doc. This README covers how to run the script.
 
 ## Reading the results
 
@@ -15,15 +16,19 @@ Full plan (day by day, which stress tools, pass criteria, results log): the
 | PASS | As expected | Nothing |
 | INFO | A value to record | Copy it into the results log |
 
-Every run makes a folder `reports\<PC>_<mode>_<date_time>\` with:
+Every run makes a folder `reports\<PC>_<mode>_<date_time>\` containing:
 
-- `DOA_report_<mode>_<date_time>.pdf`: **the file to share.** All results, the expected values, every part
-  with its exact model and serial (CPU, GPU, RAM, SSD, panel, battery, Wi-Fi, Bluetooth, camera, audio,
-  touchpad, USB and Thunderbolt), sensor charts from `-Monitor`, the raw outputs, and any script errors at
-  the end so a person or another agent can review it. It is made even if a check crashes or the laptop is
-  not recognised. Microsoft Edge (built into Windows) prints it; if that fails, the same report is there as
-  `.html` to open and print.
-- `SUMMARY.txt`, the raw files, and `MANIFEST.sha256` (fingerprints that prove no file was edited later).
+- **`DOA_report_<mode>_<date_time>.pdf`: the file to share.** It holds:
+  - all results and the expected values
+  - every part with its exact model and serial (CPU, GPU, RAM, SSD, panel, battery, Wi-Fi, Bluetooth,
+    camera, audio, touchpad, USB, Thunderbolt)
+  - sensor charts from `-Monitor`
+  - the raw outputs, and any script errors at the end
+- **`DOA_report_....html`:** the same report. Open it in a browser and print it if the PDF was not made.
+- **`SUMMARY.txt`, the raw files, and `MANIFEST.sha256`:** the fingerprints prove no file was edited later.
+
+The PDF is made even if a check crashes or the laptop is not recognised. Microsoft Edge, which is built
+into Windows, prints it.
 
 ## Get the kit onto the laptop (no Git needed)
 
@@ -52,11 +57,9 @@ Do this before you install, update or sign in to anything:
 
     .\omen-audit.ps1
 
-It first asks for the serial number printed on the invoice: type it and press Enter. It compares it
-with the serial in the BIOS itself. Then it runs on its own for a few minutes (msinfo32 is the slow part)
-and changes nothing on the laptop.
-
-It knows what this laptop is supposed to have (table at the bottom) and flags every difference itself:
+It asks once for the serial number printed on the invoice. Type it and press Enter, and the script compares
+it with the serial in the BIOS. After that it runs by itself for a few minutes (msinfo32 is the slow part)
+and changes nothing on the laptop. It checks everything against the expected values (table at the bottom):
 
 - Identity: product number 834T6PA, model, board ID 8BB3, serial number against the invoice, BIOS version
 - Genuine parts: CPU i7-13700HX with 16 cores and 24 threads, RTX 4070 with 8 GB, 16 GB RAM in 2 matched
@@ -71,9 +74,9 @@ and this report is your only record of the laptop as the seller delivered it.
 
 ## Step 3: after the clean reinstall
 
-The reinstall wiped the kit too. Download the ZIP again (or install Git now and `git clone`, it no longer matters).
-
-After the Windows reinstall (HP Cloud Recovery Tool) and the HP and NVIDIA drivers, run the full audit again:
+Reinstall Windows with the HP Cloud Recovery Tool, then install the HP and NVIDIA drivers. The reinstall
+erased the kit too, so download the ZIP again. Installing Git and using `git clone` is fine now. Then run the
+full audit again:
 
     .\omen-audit.ps1
 
@@ -82,8 +85,8 @@ with the NVIDIA driver.
 
 ## Step 4: during every stress test, log the sensors
 
-Open a **second** admin PowerShell window (Step 1 again) and start the monitor, then start the stress test
-(OCCT, Cinebench loop, a game) in the other window:
+Open a **second** admin PowerShell window (repeat Step 1) and start the monitor. Then start the stress test
+(OCCT, a Cinebench loop, or a game):
 
     .\omen-audit.ps1 -Monitor -Minutes 60
 
@@ -94,8 +97,8 @@ Open a **second** admin PowerShell window (Step 1 again) and start the monitor, 
   - FAIL: the GPU stopped answering (GPU dropout), or a crash, WHEA error or driver reset happened during the test
   - WARN: GPU hardware slowdown (thermal or power brake), GPU at 87 C or above, sustained GPU power
     under 95 W at full load (this model does about 109 W), samples taken on battery
-- Fan speed and CPU package power are not available from Windows itself. Keep HWiNFO64 logging to CSV
-  next to it for those, as the runbook says.
+- Windows itself does not report fan speed or CPU package power. Keep HWiNFO64 logging to CSV alongside
+  for those, as the runbook says.
 
 Run on the HP charger, in Performance mode in OMEN Gaming Hub, on a hard flat surface.
 
@@ -109,15 +112,17 @@ Takes a few seconds.
 
 ## Which laptop it checks against
 
-Nothing to set. The script reads the laptop's model name and board ID and picks the matching profile.
-The first line of every report says which one it picked. It knows two laptops:
+There is nothing to set. The script reads the laptop's model name and board ID and picks the matching
+profile. The first line of every report says which one it picked. It knows two laptops:
 
 - **omen**: the HP OMEN Transcend 16-u0005TX, the real target
 - **asus**: the ASUS VivoBook 15 X515DA used to test this kit. On that laptop, expect real WARNs for
   the old SSD (19,000+ hours) and the worn battery (about 60%, 1,800+ cycles), and PASS for the rest
 
 A laptop it does not recognise is checked against the OMEN, so a wrong or swapped machine fails loudly.
-To force a profile: `.\omen-audit.ps1 -Laptop omen`. To skip the serial question: `-InvoiceSerial <serial>`.
+
+- To force a profile: `.\omen-audit.ps1 -Laptop omen`
+- To skip the serial question: `.\omen-audit.ps1 -InvoiceSerial <serial>`
 
 ## Expected values (omen profile)
 
@@ -140,7 +145,7 @@ If it fires, ask HP support which battery your serial number shipped with. Do no
 
 ## Optional: linux-live-audit.sh
 
-A second opinion from outside Windows, booted from an Ubuntu USB stick. Not needed for the normal plan:
+A second opinion from outside Windows, booted from an Ubuntu USB stick. The normal plan does not need it.
 
     sudo bash linux-live-audit.sh --install            # identity, SSD, firmware security, kernel errors
     sudo bash linux-live-audit.sh --install --stress   # plus a 15 min stress-ng with verification
