@@ -66,7 +66,7 @@ write_report() {
   html="$OUT/DOA_report_${mode}_${STAMP}.html"
   {
     cat <<'EOF'
-<!doctype html><html><head><meta charset="utf-8"><title>Laptop audit report</title><style>
+<!doctype html><html><head><meta charset="utf-8"><title>SecondTrust report</title><style>
 body{font:13px/1.5 system-ui,Arial,sans-serif;color:#111;margin:24px;max-width:1100px}
 h1{font-size:20px;margin:0 0 6px}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc}
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:3px 6px;text-align:left;vertical-align:top}
@@ -75,7 +75,7 @@ pre{font-size:11px;white-space:pre-wrap;word-wrap:break-word;background:#fafafa;
 .box{padding:6px;border:1px solid #999;margin:8px 0;font-size:14px}
 </style></head><body>
 EOF
-    echo "<h1>Laptop audit report ($mode, $(uname -s))</h1>"
+    echo "<h1>SecondTrust report ($mode, $(uname -s))</h1>"
     echo "<div>Run at $(date '+%Y-%m-%d %H:%M:%S %z'). Profile: $(printf '%s' "$PROFILE_NAME, $HOW" | html_escape).</div>"
     if [ "$fails" -gt 0 ]; then level=FAIL; elif [ "$warns" -gt 0 ]; then level=WARN; else level=PASS; fi
     echo "<div class=\"box $level\"><b>$fails FAIL, $warns WARN.</b> FAIL = evidence of a fault, swap or tampering. WARN = check by hand. Print this page to PDF from your browser to share it.</div>"

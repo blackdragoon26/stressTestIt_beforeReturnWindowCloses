@@ -29,7 +29,7 @@
         doc.innerHTML = marked.parse(md);
         doc.classList.remove('in'); void doc.offsetWidth; doc.classList.add('in');   // gentle rise on every page
         var h1 = doc.querySelector('h1');
-        if (h1) document.title = h1.textContent + ' - DOA Kit';
+        if (h1) document.title = h1.textContent + ' - SecondTrust';
 
         // Links between pages: "checks.md" becomes "docs.html#checks"
         doc.querySelectorAll('a[href]').forEach(function (a) {

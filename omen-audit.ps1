@@ -867,7 +867,7 @@ else {
 
 # ---------- summary + manifest ----------
 $header = @(
-    "OMEN DOA audit ($mode)",
+    "SecondTrust audit ($mode)",
     "Run at   : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')",
     "Computer : $env:COMPUTERNAME",
     "Output   : $OutDir",
@@ -961,7 +961,7 @@ th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wr
 '@
     $h = New-Object System.Text.StringBuilder
     [void]$h.Append("<!doctype html><html><head><meta charset=`"utf-8`"><title>$reportBase</title><style>$css</style></head><body>")
-    [void]$h.Append("<h1>Laptop DOA audit report ($mode)</h1>")
+    [void]$h.Append("<h1>SecondTrust report ($mode)</h1>")
     [void]$h.Append("<div>Run at $(Enc (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')) on $(Enc $env:COMPUTERNAME). Profile: $(Enc $Expect.Name) ($(Enc $how)).</div>")
     [void]$h.Append("<div>Machine: $(Enc $machineId). Serial: $(Enc (Get-CimInstance Win32_BIOS).SerialNumber).</div>")
     [void]$h.Append("<div class=`"box $(if ($fails) {'FAIL'} elseif ($warns) {'WARN'} else {'PASS'})`"><b>$fails FAIL, $warns WARN.</b> FAIL = DOA evidence. WARN = check by hand. The raw files and MANIFEST.sha256 are in the same folder.</div>")

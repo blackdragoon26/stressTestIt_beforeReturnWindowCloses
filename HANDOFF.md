@@ -55,12 +55,14 @@ machine. It also runs other remote workloads: install nothing system-wide, touch
 Sankalp may turn this into a product: a self-serve laptop check for owners and buyers, OS neutral, with a
 site on his subdomain. It stays local-first. Seller certification was discussed and set aside for now.
 
-**Open decisions (his):** product name ("DOA Kit" is a working title), license, subdomain, code signing
+**Name:** SecondTrust (decided 2026-11-19; script and folder names stay omen-* until the OMEN DOA window ends).
+
+**Open decisions (his):** license, subdomain, code signing
 certificate.
 
 **Hosting:** on Myprod (Sankalp's Nomad pool on Oracle ARM64; docs in github.com/blackdragoon26/Myprod). This
 repo is the "project agent" side only: build, publish, handoff. Registration and deploy are the operator's
-(Sankalp's) dashboard actions. Proposed app `doakit-site` at `doakit.sankalpjha.dev`. Steps: deploy/MYPROD.md.
+(Sankalp's) dashboard actions. Proposed app `secondtrust-site` at `secondtrust.sankalpjha.dev`. Steps: deploy/MYPROD.md.
 
 **Live preview of the site (private):** https://claude.ai/artifact/4k5aNmbJ6nzXibhgzvA5oQ
 (a copy built from `docs/`, with the page skeleton stripped for the artifact host).

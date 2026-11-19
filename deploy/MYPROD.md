@@ -1,4 +1,4 @@
-# Myprod handoff: the DOA Kit website
+# Myprod handoff: the SecondTrust website
 
 The website in `docs/` runs as an ordinary Myprod managed app. This repository builds and publishes the
 image. The Myprod operator registers and deploys it. Contract:
@@ -8,9 +8,9 @@ and [arm64-application-cicd.md](https://github.com/blackdragoon26/Myprod/blob/ma
 ## Handoff manifest
 
 ```txt
-name: doakit-site
+name: secondtrust-site
 source commit: the commit that the "Publish and deploy website" workflow run built
-image: ghcr.io/blackdragoon26/doakit-site
+image: ghcr.io/blackdragoon26/secondtrust-site
 image digest: printed in that workflow run's summary (sha256:...), multi-platform index
 architecture: linux/amd64, linux/arm64
 container port: 8080
@@ -27,22 +27,22 @@ project test command and result: the workflow's "Smoke test the image" step: eve
 known limitations: the docs pages load the Markdown renderer from cdn.jsdelivr.net (pinned, SRI-checked)
 ```
 
-Proposed domain: `doakit.sankalpjha.dev` (rename freely: the product name is not final).
+Domain: `secondtrust.sankalpjha.dev`.
 
 ## Operator steps
 
-1. **Push this repository.** The workflow publishes `ghcr.io/blackdragoon26/doakit-site:sha-<commit>` and
+1. **Push this repository.** The workflow publishes `ghcr.io/blackdragoon26/secondtrust-site:sha-<commit>` and
    prints the digest in the run summary. The deploy job reports "deployment skipped" for now.
-2. **Make the package public:** GitHub, your profile, **Packages**, `doakit-site`, **Package settings**,
-   **Change visibility**, Public. Check with `docker pull ghcr.io/blackdragoon26/doakit-site@sha256:<digest>`
+2. **Make the package public:** GitHub, your profile, **Packages**, `secondtrust-site`, **Package settings**,
+   **Change visibility**, Public. Check with `docker pull ghcr.io/blackdragoon26/secondtrust-site@sha256:<digest>`
    while logged out.
 3. **Register** at <https://control.sankalpjha.dev/>, **Managed Apps**, **Add application**:
 
    | Field | Value |
    | --- | --- |
-   | Name | `doakit-site` |
-   | Domain | `doakit.sankalpjha.dev` |
-   | Container image | `ghcr.io/blackdragoon26/doakit-site@sha256:<digest from step 1>` |
+   | Name | `secondtrust-site` |
+   | Domain | `secondtrust.sankalpjha.dev` |
+   | Container image | `ghcr.io/blackdragoon26/secondtrust-site@sha256:<digest from step 1>` |
    | Target node | `oracle-worker-1` |
    | Container port | `8080` |
    | CPU reservation | `100` MHz |
@@ -52,7 +52,7 @@ Proposed domain: `doakit.sankalpjha.dev` (rename freely: the product name is not
    | Create and verify DNS automatically | on |
 
 4. **Deploy** the app (a separate action with its own confirmation). Then check
-   `https://doakit.sankalpjha.dev/healthz` returns `ok`.
+   `https://secondtrust.sankalpjha.dev/healthz` returns `ok`.
 5. **Automate later releases:** open the app's **CI tokens**, generate one, and save it in this repository
    under **Settings, Secrets and variables, Actions** as `MYPROD_DEPLOY_TOKEN`. From then on, every push
    that changes `docs/` or `deploy/` publishes a new digest and deploys it.

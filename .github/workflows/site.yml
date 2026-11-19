@@ -18,8 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/blackdragoon26/doakit-site
-  MYPROD_APP: doakit-site
+  IMAGE: ghcr.io/blackdragoon26/secondtrust-site
+  MYPROD_APP: secondtrust-site
   MYPROD_IMAGE_ENDPOINT: https://api.sankalpjha.dev/__poolctl/api
 
 jobs:

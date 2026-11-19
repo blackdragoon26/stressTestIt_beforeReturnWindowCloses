@@ -1,4 +1,4 @@
-# DOA Kit
+# SecondTrust
 
 Check your laptop before the return window closes. One command on Windows, Linux or macOS reads the
 hardware, firmware and logs, and tells you:
