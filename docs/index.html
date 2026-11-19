@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DOA Kit</title>
-<meta name="description" content="One command that tells you if a laptop is the machine you paid for, untampered, and how much it was used. Read-only, open source, nothing uploaded.">
+<meta name="description" content="One command that tells you if a laptop is the machine you paid for, untampered, and how much it was really used. Windows, Linux and macOS. Read-only, open source, nothing uploaded.">
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -21,35 +21,63 @@
 
 <main>
   <section class="hero">
-    <h1>Check a laptop before the return window closes.</h1>
-    <p class="lead">One PowerShell command reads the hardware, firmware and event logs. It tells you if this is
-      the machine you paid for, whether anyone tampered with it, and how much it was really used. Then it
-      writes a PDF you can send the seller.</p>
+    <h1>Check your laptop before the return window closes.</h1>
+    <p class="lead">One command reads the hardware, firmware and logs. It tells you if this is the machine you
+      paid for, whether anyone tampered with it, and how much it was really used. You get a report to keep as proof.</p>
   </section>
 
   <section>
-    <div class="label">Run it. Windows 10 or 11, admin PowerShell</div>
-    <div class="code">
-      <button class="copy" type="button" aria-label="Copy the commands">Copy</button>
+    <div class="os" role="tablist" aria-label="Operating system">
+      <button type="button" role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="true">Windows</button>
+      <button type="button" role="tab" id="tab-linux" aria-controls="panel-linux" aria-selected="false">Linux</button>
+      <button type="button" role="tab" id="tab-mac" aria-controls="panel-mac" aria-selected="false">macOS</button>
+    </div>
+
+    <div class="os-panel" role="tabpanel" id="panel-windows" aria-labelledby="tab-windows">
+      <div class="code">
+        <div class="code-bar"><span>Terminal (Admin): press Win + X</span><button class="copy" type="button">Copy</button></div>
 <pre><code>Set-ExecutionPolicy -Scope Process Bypass -Force
 Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
 Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
 cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 .\omen-audit.ps1</code></pre>
+      </div>
+      <p class="note">Writes a PDF report. Add <code>-Monitor -Minutes 60</code> during stress tests and <code>-Quick</code> every evening.</p>
     </div>
-    <p class="fine">Read-only. Nothing installed. Nothing uploaded. Open source.
+
+    <div class="os-panel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" hidden>
+      <div class="code">
+        <div class="code-bar"><span>Terminal, on the installed system or a live USB</span><button class="copy" type="button">Copy</button></div>
+<pre><code>(curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz || wget -qO- https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz) | tar -xz -C ~
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+sudo bash linux-live-audit.sh --install</code></pre>
+      </div>
+      <p class="note">Writes an HTML report. Add <code>--stress</code> for a 15 minute verified CPU and memory test. From a live USB it checks a Windows laptop from outside Windows.</p>
+    </div>
+
+    <div class="os-panel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" hidden>
+      <div class="code">
+        <div class="code-bar"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
+<pre><code>curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz | tar -xz -C ~
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+bash mac-audit.sh</code></pre>
+      </div>
+      <p class="note">Experimental: not yet run on a real Mac. Writes an HTML report. For SSD hours, install smartmontools first.</p>
+    </div>
+
+    <p class="fine">Read-only. Nothing installed unless you ask. Nothing uploaded. Open source.
       <a href="docs.html#trust">Check the download first</a>.</p>
   </section>
 
   <section>
     <h2>What it checks</h2>
     <div class="grid">
-      <div><h3>Identity</h3><p>Serial against your invoice, product number, model, board ID.</p></div>
-      <div><h3>Genuine parts</h3><p>CPU core count, GPU and its memory, RAM, SSD size, the panel's resolution and refresh, battery capacity.</p></div>
-      <div><h3>Prior use</h3><p>SSD power-on hours and terabytes written, read straight from the drive. Battery wear and cycles.</p></div>
-      <div><h3>Tampering</h3><p>Secure Boot and its keys, BIOS passwords, company or MDM enrollment, boot entries, leftover software.</p></div>
-      <div><h3>Stability</h3><p>Hardware errors, crashes, unexpected shutdowns, GPU driver resets, devices that vanished.</p></div>
-      <div><h3>Under load</h3><p>A sensor log during stress tests: GPU dropouts, thermal and power brakes, sustained watts.</p></div>
+      <div><h3>Identity</h3><p>Serial against your invoice, model, product number, board ID.</p></div>
+      <div><h3>Genuine parts</h3><p>CPU core count, GPU and its memory, RAM, SSD size, the panel's resolution, battery capacity.</p></div>
+      <div><h3>Prior use</h3><p>SSD power-on hours and terabytes written, read from the drive itself. Battery wear and cycles.</p></div>
+      <div><h3>Tampering</h3><p>Secure Boot and its keys, firmware passwords, company enrollment, Activation Lock on Macs.</p></div>
+      <div><h3>Stability</h3><p>Hardware errors, crashes, kernel panics, unexpected shutdowns, devices that vanished.</p></div>
+      <div><h3>Under load</h3><p>Sensor logs and verified stress tests: GPU dropouts, thermal brakes, memory errors.</p></div>
     </div>
     <p class="more"><a href="docs.html#checks">Every check and its rules</a></p>
   </section>
@@ -67,18 +95,25 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
   </section>
 
   <section>
-    <h2>What you get</h2>
-    <ul class="plain">
-      <li><strong>A PDF report.</strong> Every result, every part with its exact model and serial, sensor charts, and the raw outputs.</li>
-      <li><strong>Fingerprints.</strong> A SHA-256 manifest proves no file was edited after the run.</li>
-      <li><strong>Three modes.</strong> A full audit on day one, a sensor log for every stress test, and a quick check every evening.</li>
-    </ul>
+    <h2>Platforms</h2>
+    <div class="matrix">
+      <table>
+        <tr><th></th><th>Windows</th><th>Linux</th><th>macOS</th></tr>
+        <tr><td>Specs against the profile</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>SSD hours and data written</td><td>Built in</td><td>smartctl</td><td>smartctl</td></tr>
+        <tr><td>Battery wear and cycles</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Tampering</td><td>Secure Boot keys, HP BIOS password, MDM</td><td>Secure Boot keys, firmware security</td><td>Activation Lock, MDM and DEP, SIP, firmware password</td></tr>
+        <tr><td>Crash history</td><td>30 days of event logs</td><td>This boot's kernel log</td><td>30 days of panics and shutdowns</td></tr>
+        <tr><td>Under load</td><td>Sensor log during your tests</td><td>15 min verified stress test</td><td>Not yet</td></tr>
+        <tr><td>Report</td><td>PDF and HTML</td><td>HTML</td><td>HTML</td></tr>
+        <tr><td>Status</td><td>Tested</td><td>Tested</td><td>Experimental</td></tr>
+      </table>
+    </div>
   </section>
 
   <section>
     <h2>Supported laptops</h2>
-    <p>Any Windows laptop runs in generic mode: every health, tamper and prior-use check, with specs listed.
-      With a profile, every spec is also compared against what the maker promised.</p>
+    <p>Every laptop runs the health, tamper and prior-use checks. With a profile, every spec is also compared against what the maker promised.</p>
     <ul class="plain">
       <li>HP OMEN Transcend 16-u0005TX (834T6PA)</li>
       <li>ASUS VivoBook 15 X515DA</li>
@@ -88,23 +123,40 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 </main>
 
 <footer>
-  <span>Open source. Not affiliated with HP, ASUS or Microsoft.</span>
+  <span>Open source. Not affiliated with HP, ASUS, Apple or Microsoft.</span>
   <a href="SHA256SUMS.txt">SHA256SUMS</a>
 </footer>
 
 <script>
-document.querySelectorAll('.copy').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var code = b.parentElement.querySelector('code');
-    function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
-    function selectInstead() {
-      var r = document.createRange(); r.selectNodeContents(code);
-      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-      b.textContent = 'Press Ctrl+C';
-    }
-    try { navigator.clipboard.writeText(code.innerText).then(done, selectInstead); } catch (e) { selectInstead(); }
+(function () {
+  // Operating system switch, preselected from the visitor's own system
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.os [role="tab"]'));
+  function pick(id) {
+    tabs.forEach(function (t) {
+      var on = t.id === 'tab-' + id;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+  }
+  tabs.forEach(function (t) { t.addEventListener('click', function () { pick(t.id.slice(4)); }); });
+  var ua = navigator.userAgent;
+  if (/Macintosh|Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua)) pick('mac');
+  else if (/Linux|X11/.test(ua) && !/Android/.test(ua)) pick('linux');
+
+  // Copy buttons: the clipboard when allowed, otherwise select the text
+  document.querySelectorAll('.copy').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var code = b.closest('.code').querySelector('code');
+      function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+      function selectInstead() {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        b.textContent = 'Press Ctrl+C';
+      }
+      try { navigator.clipboard.writeText(code.innerText).then(done, selectInstead); } catch (e) { selectInstead(); }
+    });
   });
-});
+})();
 </script>
 </body>
 </html>

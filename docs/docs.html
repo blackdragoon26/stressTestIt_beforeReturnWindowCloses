@@ -39,7 +39,7 @@
     function done() { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); }
     function selectInstead() {
       var r = document.createRange();
-      r.selectNodeContents(button.parentElement.querySelector('code'));
+      r.selectNodeContents(button.closest('.code').querySelector('code'));
       var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
       button.textContent = 'Press Ctrl+C';
     }
@@ -77,14 +77,19 @@
           w.appendChild(t);
         });
 
-        // A copy button on every code block
+        // Every code block gets a label bar with a copy button above it, so the button never covers text
         doc.querySelectorAll('pre').forEach(function (pre) {
-          var b = document.createElement('button');
-          b.className = 'copy';
-          b.type = 'button';
-          b.textContent = 'Copy';
-          b.addEventListener('click', function () { copyText(b, pre.querySelector('code').innerText); });
-          pre.appendChild(b);
+          var code = pre.querySelector('code');
+          var lang = ((code && code.className) || '').replace('language-', '');
+          var names = { powershell: 'PowerShell', bash: 'Terminal', sh: 'Terminal' };
+          var box = document.createElement('div'); box.className = 'code';
+          var bar = document.createElement('div'); bar.className = 'code-bar';
+          var label = document.createElement('span'); label.textContent = names[lang] || lang || 'Text';
+          var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+          b.addEventListener('click', function () { copyText(b, code.innerText); });
+          bar.appendChild(label); bar.appendChild(b);
+          pre.parentNode.insertBefore(box, pre);
+          box.appendChild(bar); box.appendChild(pre);
         });
         window.scrollTo(0, 0);
       })

@@ -13,9 +13,11 @@ found and recorded inside that window.
 
 ## Platform
 
-The OMEN runs Windows only, so `omen-audit.ps1` is the deliverable. `linux-live-audit.sh` is an optional
-second opinion. The Linux laptop this repo is developed on (ASUS VivoBook X515DA) is a workbench and the
-test machine. It also runs other remote workloads: install nothing system-wide, touch only this repo.
+The OMEN runs Windows only, so `omen-audit.ps1` matters most for the DOA window. As a product the kit is
+OS neutral: Windows (`omen-audit.ps1`, tested), Linux (`linux-live-audit.sh`, tested on the ASUS) and macOS
+(`mac-audit.sh`, experimental: written without a Mac, parsers checked against sample output only). All three
+read the same `profiles/*.psd1`. The Linux laptop this repo is developed on is the workbench and test
+machine. It also runs other remote workloads: install nothing system-wide, touch only this repo.
 
 ## Files
 
@@ -26,7 +28,10 @@ test machine. It also runs other remote workloads: install nothing system-wide, 
 | `docs/*.md` | Docs: guide, checks, profiles, trust, omen-day. GitHub shows them; the site renders the same files |
 | `docs/index.html`, `docs.html`, `site.css`, `.nojekyll` | The website. Static, hosted from `docs/` (GitHub Pages or Cloudflare Pages) once Sankalp gives a subdomain |
 | `docs/SHA256SUMS.txt`, `tools/update-hashes.sh` | Published fingerprints. Re-run the tool before every commit that changes a script or profile |
-| `linux-live-audit.sh` | Optional Linux audit from an Ubuntu live USB |
+| `linux-live-audit.sh` | Linux audit (installed or live USB), profile-aware. `DOA_DEV=1` skips the root check for testing without sudo |
+| `mac-audit.sh` | macOS audit, experimental. Activation Lock, MDM/DEP, SIP, Gatekeeper, panics, shutdown causes |
+| `lib/common.sh` | Shared by the Linux and macOS scripts (bash 3.2): profile reading, results, HTML report, manifest |
+| `docs/fonts/` | IBM Plex Sans and Mono (woff2, OFL), self-hosted so the site makes no outside requests |
 
 ## How omen-audit.ps1 works
 
@@ -43,8 +48,8 @@ test machine. It also runs other remote workloads: install nothing system-wide, 
 
 ## Product direction
 
-Sankalp may turn this into a product: a laptop verification tool with a site on his subdomain. It stays
-local-first. Possible paid layer: verified report links for sellers and refurbishers.
+Sankalp may turn this into a product: a self-serve laptop check for owners and buyers, OS neutral, with a
+site on his subdomain. It stays local-first. Seller certification was discussed and set aside for now.
 
 **Open decisions (his):** product name ("DOA Kit" is a working title), license, subdomain, code signing
 certificate.
@@ -91,6 +96,8 @@ certificate.
      - `.\omen-audit.ps1`: profiles now load from files
      - `.\omen-audit.ps1 -Laptop generic`: generic mode, never run yet
      - `.\omen-audit.ps1 -Quick` and `-Monitor -Minutes 2`: never run yet
+   - On the ASUS in Linux: `sudo bash linux-live-audit.sh --install` (profile-aware rewrite; verified without
+     sudo only, so check the SSD, RAM and serial lines with sudo).
    - Fix whatever breaks.
    - Sankalp: make the MemTest86+ USB, and get the DOA window in writing (docs/omen-day.md).
 2. **OMEN day:** follow docs/omen-day.md. After the first real run, update `profiles/omen.psd1` (`Verified`,

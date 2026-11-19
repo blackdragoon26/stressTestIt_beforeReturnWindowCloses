@@ -1,7 +1,7 @@
 # DOA Kit
 
-Check a laptop before the return window closes. One PowerShell command reads the hardware, firmware and
-event logs, and tells you:
+Check your laptop before the return window closes. One command on Windows, Linux or macOS reads the
+hardware, firmware and logs, and tells you:
 
 - **Is this the machine you paid for?** Serial against the invoice, CPU core count, GPU and its memory,
   RAM, SSD size, the panel's resolution and refresh, battery capacity.
@@ -12,11 +12,17 @@ event logs, and tells you:
 - **Does it hold up under load?** A sensor log for every stress test that flags GPU dropouts, thermal and
   power brakes, and low sustained power.
 
-Every run writes a PDF report you can send the seller. Read-only, nothing installed, nothing uploaded.
+Every run writes a report to keep as proof. Read-only, nothing uploaded, nothing installed unless you ask.
 
 ## Run it
 
-Windows 10 or 11. Press `Win + X`, click **Terminal (Admin)**, paste this and press Enter:
+| System | Script | Report | Status |
+| --- | --- | --- | --- |
+| Windows 10 and 11 | `omen-audit.ps1` | PDF and HTML | Tested |
+| Linux (installed or live USB) | `linux-live-audit.sh` | HTML | Tested |
+| macOS | `mac-audit.sh` | HTML | Experimental |
+
+**Windows.** Press `Win + X`, click **Terminal (Admin)**, paste this and press Enter:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
@@ -34,6 +40,24 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 
 Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`.
 
+**Linux.** In a terminal (add `--stress` for a 15 minute verified stress test):
+
+```bash
+(curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz || wget -qO- https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz) | tar -xz -C ~
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+sudo bash linux-live-audit.sh --install
+```
+
+**macOS.** In Terminal (install smartmontools first for SSD hours):
+
+```bash
+curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz | tar -xz -C ~
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+bash mac-audit.sh
+```
+
+All three read the same laptop profiles. Options and details: [Guide](docs/guide.md).
+
 ## Docs
 
 | Page | What it covers |
@@ -46,7 +70,7 @@ Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`
 
 ## Supported laptops
 
-Any Windows laptop runs in generic mode: every health, tamper and prior-use check, with specs listed.
+Any laptop runs in generic mode: every health, tamper and prior-use check, with specs listed.
 With a profile, every spec is also compared against what the maker promised.
 
 | Profile | Laptop |
@@ -59,8 +83,13 @@ With a profile, every spec is also compared against what the maker promised.
 | Path | What |
 | --- | --- |
 | `omen-audit.ps1` | The Windows audit |
-| `profiles/` | Expected specs, one file per laptop model |
-| `docs/` | The docs above, and the website (`index.html`, `docs.html`, `site.css`) |
+| `linux-live-audit.sh` | The Linux audit, for an installed system or a live USB |
+| `mac-audit.sh` | The macOS audit (experimental) |
+| `lib/common.sh` | Shared by the Linux and macOS scripts: profiles, results, the HTML report |
+| `profiles/` | Expected specs, one file per laptop model, read by all three scripts |
+| `docs/` | The docs above, and the website (`index.html`, `docs.html`, `site.css`, `fonts/`) |
 | `docs/SHA256SUMS.txt` | Fingerprints of every file the kit runs |
 | `tools/update-hashes.sh` | Regenerates `SHA256SUMS.txt`. Run it before every commit that changes a script or profile |
-| `linux-live-audit.sh` | Optional second opinion from an Ubuntu live USB |
+
+The site uses IBM Plex Sans and IBM Plex Mono, served from `docs/fonts` under the SIL Open Font License
+(`docs/fonts/OFL.txt`).

@@ -1,5 +1,7 @@
-# SHA-256 of every file the kit runs. On Windows: (Get-FileHash .\omen-audit.ps1).Hash
+# SHA-256 of every file the kit runs. Windows: (Get-FileHash .\omen-audit.ps1).Hash   Linux: sha256sum FILE   macOS: shasum -a 256 FILE
 8ce9e32ddc9cbaa491b49599fb3b3453685bd1f4512a2fcbf0e5c6de3556a5e0  omen-audit.ps1
-f61930796ffe0d90ecf3e7f5011753c86a30a26c6286e463158cb53474a980c4  linux-live-audit.sh
+9358323ce00d15caa4f9613362e7777067c27e1e58ca48b1ac629daef5f4ac8a  linux-live-audit.sh
+5e0ea491b7159596923979e86a45dbb40b12106724802690f93a5be51006cb89  mac-audit.sh
+6e8f15f2af12eb4afb0b528333b1c69ec0ceb0e7f82935253a907daa615b1e63  lib/common.sh
 635fbed065a16bdaec15c9097802cf73b20d9d90974eff9dcacdddc1244dd997  profiles/asus.psd1
 b13fce1d914b9e2f53092534d7b9abc517d5ccaa1e0ca1aa722cf4591906f97b  profiles/omen.psd1

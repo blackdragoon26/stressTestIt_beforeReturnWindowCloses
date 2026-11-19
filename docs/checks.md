@@ -1,8 +1,9 @@
 # Every check
 
-What the full audit, `-Quick` and `-Monitor` look at, and when each one passes, warns or fails.
-"Profile" means the expected values for the laptop model ([Profiles](profiles.md)). In generic mode, the
-checks marked *spec* only list what they find.
+What each check looks at, and when it passes, warns or fails. The tables below are the Windows script's
+checks, the most complete set; the Linux and macOS scripts are covered at the end. "Profile" means the
+expected values for the laptop model ([Profiles](profiles.md)). In generic mode, the checks marked *spec*
+only list what they find.
 
 ## Identity: is it the laptop on the invoice?
 
@@ -82,8 +83,33 @@ Checked by the full audit (last 30 days), by `-Quick` (since the last quick run)
 
 Fan speed and CPU package power are not exposed by Windows. Use HWiNFO64 for those.
 
+## Linux
+
+`linux-live-audit.sh` uses the same profiles and the same rules where Linux can see the same thing.
+
+| Area | Checks |
+| --- | --- |
+| Identity | Serial against `--serial`, product number, model, board ID |
+| Genuine parts | CPU model, cores and threads, GPU (PCI bus), GPU memory (`nvidia-smi`), panel resolution, RAM layout, matched pair and speed, SSD size, battery design capacity |
+| Prior use | SSD power-on hours, TB written, wear, media errors, unsafe shutdowns (`smartctl`); battery health and cycles |
+| Tampering | Secure Boot, the Platform Key (PKfail and maker), UEFI boot, the firmware security report (`fwupdmgr security`) |
+| Stability | Kernel hardware errors this boot: machine checks, PCIe errors, NVMe timeouts, GPU hangs. Radio firmware errors are a WARN |
+| Under load | `--stress`: 15 minutes of CPU and memory stress with every result verified (`stress-ng`) |
+
+## macOS (experimental)
+
+`mac-audit.sh` uses the same profiles, matched on the model identifier (for example `Mac14,10`).
+
+| Area | Checks |
+| --- | --- |
+| Identity | Serial against `--serial`, model name and identifier |
+| Genuine parts | Chip, cores and threads, memory, GPU, built-in panel resolution, SSD size, webcam |
+| Prior use | SSD power-on hours, TB written and wear (needs smartmontools); battery health, cycles and condition |
+| Tampering | Activation Lock (a previous owner's lock), company enrollment through MDM and DEP (FAIL: a DEP Mac re-enrolls after a reset), System Integrity Protection, Gatekeeper, FileVault, firmware password on Intel Macs |
+| Stability | Kernel panics and abnormal shutdown causes in the last 30 days |
+
 ## Every report also contains
 
 - Every part with its exact model and serial number (the hardware inventory).
 - The script's own SHA-256, so you know which version produced it.
-- Any script errors, at the end, for debugging.
+- On Windows, any script errors, at the end, for debugging.
