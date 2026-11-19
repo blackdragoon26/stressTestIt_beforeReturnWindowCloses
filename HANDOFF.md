@@ -97,7 +97,7 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   - FAIL: 4 Kernel-Power 41 events (2026-10-25, 11-07, 11-10, 11-11)
   - WARN: the SSD (19,278 h, 72 TB, 100% of rated life used)
   - WARN: the battery (61%, 1,833 cycles)
-- `linux-live-audit.sh` ran on the ASUS. Its findings are fixed.
+- `linux-live-audit.sh` (profile-aware rewrite) verified with sudo on the ASUS, 2026-11-19.
 
 ## To do
 
@@ -106,8 +106,9 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
      - `.\omen-audit.ps1`: profiles now load from files
      - `.\omen-audit.ps1 -Laptop generic`: generic mode, never run yet
      - `.\omen-audit.ps1 -Quick` and `-Monitor -Minutes 2`: never run yet
-   - On the ASUS in Linux: `sudo bash linux-live-audit.sh --install` (profile-aware rewrite; verified without
-     sudo only, so check the SSD, RAM and serial lines with sudo).
+   - DONE 2026-11-19: Linux script verified with sudo on the ASUS: profile recognised, serial PASS via
+     `--serial`, RAM layout and speed PASS, SSD 19,282 h / 72.2 TB / wear 100% (WARN), battery 60% (WARN),
+     0 FAIL; HTML report valid, manifest verifies.
    - Fix whatever breaks.
    - Sankalp: make the MemTest86+ USB, and get the DOA window in writing (docs/omen-day.md).
 2. **OMEN day:** follow docs/omen-day.md. After the first real run, update `profiles/omen.psd1` (`Verified`,
