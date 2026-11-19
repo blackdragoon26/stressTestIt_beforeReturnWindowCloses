@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOA Kit docs</title>
+<link rel="stylesheet" href="site.css">
+<!-- marked: Markdown renderer. Pinned version, checked with Subresource Integrity -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+        integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi"
+        crossorigin="anonymous"></script>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="index.html">DOA&nbsp;KIT</a>
+  <nav>
+    <a href="docs.html#guide">Guide</a>
+    <a href="docs.html#checks">Checks</a>
+    <a href="docs.html#profiles">Profiles</a>
+    <a href="docs.html#trust">Trust</a>
+    <a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses">GitHub</a>
+  </nav>
+</header>
+
+<article id="doc"><p class="status">Loading...</p></article>
+
+<footer>
+  <span>Open source. Not affiliated with HP, ASUS or Microsoft.</span>
+  <a href="SHA256SUMS.txt">SHA256SUMS</a>
+</footer>
+
+<script>
+(function () {
+  // The pages are the Markdown files next to this one: the same files GitHub shows in docs/.
+  var pages = ['guide', 'checks', 'profiles', 'trust', 'omen-day'];
+  var doc = document.getElementById('doc');
+
+  function copyText(button, text) {
+    function done() { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); }
+    function selectInstead() {
+      var r = document.createRange();
+      r.selectNodeContents(button.parentElement.querySelector('code'));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      button.textContent = 'Press Ctrl+C';
+    }
+    try { navigator.clipboard.writeText(text).then(done, selectInstead); } catch (e) { selectInstead(); }
+  }
+
+  function show() {
+    var p = (location.hash || '#guide').slice(1);
+    if (pages.indexOf(p) < 0) p = 'guide';
+    document.querySelectorAll('nav a').forEach(function (a) {
+      if (a.getAttribute('href') === 'docs.html#' + p) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    doc.innerHTML = '<p class="status">Loading...</p>';
+
+    fetch(p + '.md')
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (md) {
+        doc.innerHTML = marked.parse(md);
+        var h1 = doc.querySelector('h1');
+        if (h1) document.title = h1.textContent + ' - DOA Kit';
+
+        // Links between pages: "checks.md" becomes "docs.html#checks"
+        doc.querySelectorAll('a[href]').forEach(function (a) {
+          var m = a.getAttribute('href').match(/^([a-z-]+)\.md$/);
+          if (m && pages.indexOf(m[1]) >= 0) a.setAttribute('href', 'docs.html#' + m[1]);
+          if (/^https?:/.test(a.getAttribute('href'))) a.setAttribute('rel', 'noopener');
+        });
+
+        // Wide tables scroll sideways on phones instead of widening the page
+        doc.querySelectorAll('table').forEach(function (t) {
+          var w = document.createElement('div');
+          w.className = 'scroll';
+          t.parentNode.insertBefore(w, t);
+          w.appendChild(t);
+        });
+
+        // A copy button on every code block
+        doc.querySelectorAll('pre').forEach(function (pre) {
+          var b = document.createElement('button');
+          b.className = 'copy';
+          b.type = 'button';
+          b.textContent = 'Copy';
+          b.addEventListener('click', function () { copyText(b, pre.querySelector('code').innerText); });
+          pre.appendChild(b);
+        });
+        window.scrollTo(0, 0);
+      })
+      .catch(function () {
+        doc.innerHTML = '<p class="status">This page could not be loaded. Read it on GitHub: ' +
+          '<a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/tree/main/docs">docs/</a></p>';
+      });
+  }
+
+  window.addEventListener('hashchange', show);
+  show();
+})();
+</script>
+</body>
+</html>

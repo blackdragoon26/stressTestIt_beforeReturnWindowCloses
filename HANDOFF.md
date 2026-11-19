@@ -19,25 +19,38 @@ test machine. It also runs other remote workloads: install nothing system-wide, 
 
 ## Files
 
-| File | What it is |
+| Path | What it is |
 | --- | --- |
-| `omen-audit.ps1` | Windows audit. Modes: full (default), `-Quick` (daily soak), `-Monitor -Minutes N` (sensor log during a stress test). Every run writes a PDF report |
-| `README.md` | Step-by-step instructions for running it on Windows |
+| `omen-audit.ps1` | Windows audit. Modes: full (default), `-Quick` (daily soak), `-Monitor -Minutes N` (sensor log). Every run writes a PDF report |
+| `profiles/*.psd1` | Expected specs per laptop model, read with `Import-PowerShellDataFile` |
+| `docs/*.md` | Docs: guide, checks, profiles, trust, omen-day. GitHub shows them; the site renders the same files |
+| `docs/index.html`, `docs.html`, `site.css`, `.nojekyll` | The website. Static, hosted from `docs/` (GitHub Pages or Cloudflare Pages) once Sankalp gives a subdomain |
+| `docs/SHA256SUMS.txt`, `tools/update-hashes.sh` | Published fingerprints. Re-run the tool before every commit that changes a script or profile |
 | `linux-live-audit.sh` | Optional Linux audit from an Ubuntu live USB |
 
 ## How omen-audit.ps1 works
 
-- **Profiles:** built-in expected values for two laptops, `omen` and `asus`, picked automatically from the
-  model name and board ID. An unrecognised laptop is checked against `omen`. `-Laptop` forces one.
-- **Checks:** identity, serial against the invoice (asks once), CPU, GPU and VRAM, RAM layout and speed,
-  SSD size and health, display resolution and refresh, battery health and design capacity, Secure Boot
-  and its keys, BIOS passwords (HP WMI), TPM, Windows activation, company or MDM enrollment, drivers,
-  Wi-Fi, Bluetooth, webcam, event log errors.
-- **Report:** `DOA_report_<mode>_<stamp>.pdf`, printed from HTML by headless Edge, with the `.html` kept as
-  a fallback. The main work is wrapped in try/catch, so a crash still produces a report
-  (WARN "Script error", not FAIL).
-- **Constraints:** the file must stay pure ASCII (Windows PowerShell 5.1). It only uses what Windows and
-  the NVIDIA driver provide: nothing gets installed before the first audit.
+- **Profiles:** the script loads every `profiles/*.psd1` file and matches each one's `Detect` regex against
+  "model board ID". With no match it runs in **generic mode** (WARN "not recognised"): specs are listed, not
+  compared, and every health, tamper and prior-use check still runs. `-Laptop <name>` forces a profile,
+  and `-Laptop generic` forces generic mode. Every spec check is guarded by `Test-Spec '<key>'`.
+- **Checks:** identity, serial against the invoice (asks once), CPU, GPU and VRAM, RAM, the SSD (its NVMe
+  health log read through IOCTL), display, battery, Secure Boot and keys, BIOS passwords (HP WMI), TPM,
+  activation, company or MDM enrollment, devices, event logs.
+- **Report:** `DOA_report_<mode>_<stamp>.pdf` is printed from HTML by headless Edge, with the `.html` kept as
+  a fallback. It includes the script's own SHA-256. A crash inside the main block still produces a report.
+- **Constraints:** the script must stay pure ASCII (Windows PowerShell 5.1). Nothing gets installed.
+
+## Product direction
+
+Sankalp may turn this into a product: a laptop verification tool with a site on his subdomain. It stays
+local-first. Possible paid layer: verified report links for sellers and refurbishers.
+
+**Open decisions (his):** product name ("DOA Kit" is a working title), license, subdomain, code signing
+certificate.
+
+**Live preview of the site (private):** https://claude.ai/artifact/4k5aNmbJ6nzXibhgzvA5oQ
+(a copy built from `docs/`, with the page skeleton stripped for the artifact host).
 
 ## Spec sources and open questions (OMEN)
 
@@ -73,11 +86,17 @@ test machine. It also runs other remote workloads: install nothing system-wide, 
 
 ## To do
 
-1. On the ASUS in Windows, try `.\omen-audit.ps1 -Quick` and `.\omen-audit.ps1 -Monitor -Minutes 2`
-   (with something loading the CPU). The full mode is verified; these two modes have not run yet.
-2. Optional: re-run `linux-live-audit.sh` with
-   `sudo EXPECT_CPU=3500U EXPECT_THREADS=8 EXPECT_GPU_REGEX='Radeon|Picasso' EXPECT_PK_REGEX=ASUS bash linux-live-audit.sh --install --stress`.
-3. Add a LICENSE if Sankalp wants the repo public.
+1. **Before the OMEN arrives (about 2026-11-26):**
+   - On the ASUS in Windows, paste the Step 1 block to update, then run:
+     - `.\omen-audit.ps1`: profiles now load from files
+     - `.\omen-audit.ps1 -Laptop generic`: generic mode, never run yet
+     - `.\omen-audit.ps1 -Quick` and `-Monitor -Minutes 2`: never run yet
+   - Fix whatever breaks.
+   - Sankalp: make the MemTest86+ USB, and get the DOA window in writing (docs/omen-day.md).
+2. **OMEN day:** follow docs/omen-day.md. After the first real run, update `profiles/omen.psd1` (`Verified`,
+   exact model string, battery Wh) and settle the 45 vs 97 Wh question.
+3. **Product:** pick a name and a license, host `docs/` on the subdomain, get a code signing certificate,
+   then more profiles.
 
 ## Rules (from Sankalp)
 

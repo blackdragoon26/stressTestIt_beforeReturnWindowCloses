@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOA Kit</title>
+<meta name="description" content="One command that tells you if a laptop is the machine you paid for, untampered, and how much it was used. Read-only, open source, nothing uploaded.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="index.html">DOA&nbsp;KIT</a>
+  <nav>
+    <a href="docs.html#guide">Guide</a>
+    <a href="docs.html#checks">Checks</a>
+    <a href="docs.html#profiles">Profiles</a>
+    <a href="docs.html#trust">Trust</a>
+    <a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Check a laptop before the return window closes.</h1>
+    <p class="lead">One PowerShell command reads the hardware, firmware and event logs. It tells you if this is
+      the machine you paid for, whether anyone tampered with it, and how much it was really used. Then it
+      writes a PDF you can send the seller.</p>
+  </section>
+
+  <section>
+    <div class="label">Run it. Windows 10 or 11, admin PowerShell</div>
+    <div class="code">
+      <button class="copy" type="button" aria-label="Copy the commands">Copy</button>
+<pre><code>Set-ExecutionPolicy -Scope Process Bypass -Force
+Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
+Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
+cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
+.\omen-audit.ps1</code></pre>
+    </div>
+    <p class="fine">Read-only. Nothing installed. Nothing uploaded. Open source.
+      <a href="docs.html#trust">Check the download first</a>.</p>
+  </section>
+
+  <section>
+    <h2>What it checks</h2>
+    <div class="grid">
+      <div><h3>Identity</h3><p>Serial against your invoice, product number, model, board ID.</p></div>
+      <div><h3>Genuine parts</h3><p>CPU core count, GPU and its memory, RAM, SSD size, the panel's resolution and refresh, battery capacity.</p></div>
+      <div><h3>Prior use</h3><p>SSD power-on hours and terabytes written, read straight from the drive. Battery wear and cycles.</p></div>
+      <div><h3>Tampering</h3><p>Secure Boot and its keys, BIOS passwords, company or MDM enrollment, boot entries, leftover software.</p></div>
+      <div><h3>Stability</h3><p>Hardware errors, crashes, unexpected shutdowns, GPU driver resets, devices that vanished.</p></div>
+      <div><h3>Under load</h3><p>A sensor log during stress tests: GPU dropouts, thermal and power brakes, sustained watts.</p></div>
+    </div>
+    <p class="more"><a href="docs.html#checks">Every check and its rules</a></p>
+  </section>
+
+  <section>
+    <h2>A real result</h2>
+    <p>From the laptop this kit was tested on. Windows' own counters showed nothing for the SSD. The kit read the drive directly:</p>
+    <div class="result">
+      <div class="row"><span class="tag fail">FAIL</span><span>Unexpected shutdowns: 4 in 30 days. Latest 2026-11-11, 11-10, 11-07, 10-25</span></div>
+      <div class="row"><span class="tag warn">WARN</span><span>SSD health: power-on 19,278 h, written 72.21 TB, wear 100%, 207 unsafe shutdowns</span></div>
+      <div class="row"><span class="tag warn">WARN</span><span>Battery: 61% of design capacity, 1,833 cycles</span></div>
+      <div class="row"><span class="tag pass">PASS</span><span>CPU, GPU, display, RAM, Secure Boot keys, no company enrollment</span></div>
+    </div>
+    <p class="fine">The same numbers <code>smartctl</code> reads on Linux, matched to the hour.</p>
+  </section>
+
+  <section>
+    <h2>What you get</h2>
+    <ul class="plain">
+      <li><strong>A PDF report.</strong> Every result, every part with its exact model and serial, sensor charts, and the raw outputs.</li>
+      <li><strong>Fingerprints.</strong> A SHA-256 manifest proves no file was edited after the run.</li>
+      <li><strong>Three modes.</strong> A full audit on day one, a sensor log for every stress test, and a quick check every evening.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Supported laptops</h2>
+    <p>Any Windows laptop runs in generic mode: every health, tamper and prior-use check, with specs listed.
+      With a profile, every spec is also compared against what the maker promised.</p>
+    <ul class="plain">
+      <li>HP OMEN Transcend 16-u0005TX (834T6PA)</li>
+      <li>ASUS VivoBook 15 X515DA</li>
+    </ul>
+    <p class="more"><a href="docs.html#profiles">Add your laptop</a></p>
+  </section>
+</main>
+
+<footer>
+  <span>Open source. Not affiliated with HP, ASUS or Microsoft.</span>
+  <a href="SHA256SUMS.txt">SHA256SUMS</a>
+</footer>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var code = b.parentElement.querySelector('code');
+    function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    function selectInstead() {
+      var r = document.createRange(); r.selectNodeContents(code);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      b.textContent = 'Press Ctrl+C';
+    }
+    try { navigator.clipboard.writeText(code.innerText).then(done, selectInstead); } catch (e) { selectInstead(); }
+  });
+});
+</script>
+</body>
+</html>

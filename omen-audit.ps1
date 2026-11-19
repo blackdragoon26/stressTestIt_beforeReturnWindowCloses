@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
-  OMEN Transcend 16 (16-u0005TX / 834T6PA) DOA audit.
+  Laptop audit: is this the machine the listing promised, untampered, and how used is it?
+  Built for the dead-on-arrival window of an HP OMEN Transcend 16; works on any Windows laptop.
+  Laptop profiles (expected specs) live in .\profiles. Without one it runs in generic mode.
 
 .DESCRIPTION
   Full mode (default): identity, genuineness, health, security, drivers, event logs.
@@ -28,8 +30,8 @@ param(
     [switch]$Monitor,
     [int]$Minutes = 60,         # -Monitor: how long to log
     [int]$IntervalSec = 2,      # -Monitor: seconds between samples
-    # Which laptop to check against. 'auto' recognises it from the model name and board ID.
-    [ValidateSet('auto', 'omen', 'asus')]
+    # Which profile to check against: 'auto' (recognise it from the model name and board ID),
+    # a file name from .\profiles without .psd1 (for example 'omen'), or 'generic' (no spec comparison).
     [string]$Laptop = 'auto',
     # Serial number printed on the invoice or box. If left out, the full audit asks for it.
     [string]$InvoiceSerial,
@@ -39,61 +41,44 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# ---------- what each laptop is supposed to have ----------
-# Sources: HP OMEN Transcend 16 spec page, LaptopMedia review of the 16-u0000, 91mobiles listing of
-# 834T6PA, Intel spec for the i7-13700HX (max DDR5-4800). Battery: one listing says 45 Wh, reviews
-# of this model say 97 Wh, so a mismatch there is only a WARN.
-$Profiles = [ordered]@{
-    omen = @{
-        Name          = 'HP OMEN Transcend 16-u0005TX (834T6PA)'
-        Detect        = 'Transcend|8BB3'      # matched against "<model> <board>"
-        ProductNumber = '834T6PA'
-        Model         = 'Transcend'
-        BoardId       = '8BB3'                # per arfelious/omen-fan-control
-        Cpu = '13700HX'; Cores = 16; Threads = 24   # 8P + 8E. The cheaper 13700H has 14 cores / 20 threads
-        Gpu = 'RTX 4070'; GpuVramGB = 8
-        RamModules = 2; RamGB = 16; RamMatched = $true; RamMinMTs = 4800
-        SsdGB = 1000
-        Display = '2560x1600'; DisplayMinHz = 240
-        BatteryWh = 97
-        Pk = 'HP|Hewlett'
-        GpuTempWarn = 87                      # -Monitor: WARN at or above (C)
-        GpuMinWatts = 95                      # -Monitor: LaptopMedia measured about 109 W sustained
-    }
-    asus = @{
-        Name          = 'ASUS VivoBook 15 X515DA (test machine for this kit)'
-        Detect        = 'X515DA'
-        ProductNumber = ''                    # ASUS firmware stores none: check skipped
-        Model         = 'X515DA'
-        BoardId       = 'X515DA'
-        Cpu = '3500U'; Cores = 4; Threads = 8
-        Gpu = 'Radeon'; GpuVramGB = 0         # integrated, no NVIDIA checks
-        RamModules = 2; RamGB = 8; RamMatched = $false; RamMinMTs = 2400   # 4 GB soldered + 4 GB in the slot
-        SsdGB = 512
-        Display = '1920x1080'; DisplayMinHz = 60
-        BatteryWh = 37
-        Pk = 'ASUS'
-        GpuTempWarn = 87
-        GpuMinWatts = 0
-    }
+# ---------- what this laptop is supposed to have ----------
+# One file per laptop model in .\profiles (format: docs\profiles.md). A laptop without a profile runs
+# in generic mode: every health, tamper and prior-use check still runs, only the spec comparison is skipped.
+$profileDir = Join-Path $PSScriptRoot 'profiles'
+$Profiles = [ordered]@{}
+foreach ($pf in @(Get-ChildItem $profileDir -Filter *.psd1 -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    try { $Profiles[$pf.BaseName] = Import-PowerShellDataFile $pf.FullName }
+    catch { Write-Host "Skipping profile $($pf.Name): $($_.Exception.Message)" -ForegroundColor Yellow }
 }
+$generic = @{ Name = 'Generic (no profile for this laptop: specs are listed, not compared)' }
 
 $csInfo = Get-CimInstance Win32_ComputerSystem
 $bbInfo = Get-CimInstance Win32_BaseBoard
 $machineId = "$($csInfo.Model) $($bbInfo.Product)"
 $how = 'chosen with -Laptop'
 if ($Laptop -eq 'auto') {
-    # An unrecognised laptop is checked against the OMEN, the real target, so it fails loudly
-    $Laptop = 'omen'
-    $how = "not recognised ('$machineId'), checking against the OMEN"
+    $Laptop = 'generic'
+    $how = "not recognised ('$machineId')"
     foreach ($k in $Profiles.Keys) {
-        if ($machineId -match $Profiles[$k].Detect) { $Laptop = $k; $how = "recognised from '$machineId'"; break }
+        if ($Profiles[$k].Detect -and $machineId -match $Profiles[$k].Detect) { $Laptop = $k; $how = "recognised from '$machineId'"; break }
     }
 }
-$Expect = $Profiles[$Laptop]
+if ($Laptop -eq 'generic') { $Expect = $generic }
+elseif ($Profiles.Contains($Laptop)) { $Expect = $Profiles[$Laptop] }
+else {
+    Write-Host "No profile '$Laptop'. Available: $((@($Profiles.Keys) + 'generic') -join ', ')" -ForegroundColor Red
+    exit 1
+}
+$IsGeneric = ($Laptop -eq 'generic')
+function Test-Spec([string]$Key) { return $Expect.ContainsKey($Key) }   # does the profile define this value?
 $Expect.BatteryHealthMinPct = 95    # a new unit: full charge at least 95% of design
 $Expect.BatteryCyclesMax    = 10    # and single-digit cycles
 $Expect.SsdHoursWarn        = 100   # more power-on hours than this = real prior use
+if (-not (Test-Spec 'GpuTempWarn')) { $Expect.GpuTempWarn = 87 }
+if (-not (Test-Spec 'GpuMinWatts')) { $Expect.GpuMinWatts = 0 }
+# NVIDIA checks run when the profile says there is an NVIDIA GPU, or, in generic mode, when one is present
+$HasNvidia = [bool](Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match 'NVIDIA' })
+$NvidiaExpected = if (Test-Spec 'GpuVramGB') { $Expect.GpuVramGB -gt 0 } else { $HasNvidia }
 
 # ---------- setup ----------
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -216,7 +201,7 @@ function Test-EventLogs {
 
     $all = @()
     foreach ($q in $queries) {
-        if ($q.Name -like 'NVIDIA*' -and $Expect.GpuVramGB -eq 0) {
+        if ($q.Name -like 'NVIDIA*' -and -not $NvidiaExpected) {
             Add-Result 'INFO' $q.Name 'skipped: this laptop has no NVIDIA GPU'
             continue
         }
@@ -267,13 +252,24 @@ function Test-EventLogs {
         Add-Result 'PASS' 'Devices with errors' 'none'
     }
 
-    $gpu = @(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match $Expect.Gpu })
-    if ($gpu.Count -gt 0) { Add-Result 'PASS' 'GPU present' $gpu[0].Name }
-    else { Add-Result 'FAIL' 'GPU present' "$($Expect.Gpu) not listed. Possible GPU dropout" }
+    # A dedicated GPU that vanishes from Windows is the classic sign of a failing GPU or board
+    $wantGpu = if (Test-Spec 'Gpu') { $Expect.Gpu } elseif ($HasNvidia) { 'NVIDIA' } else { $null }
+    if ($wantGpu) {
+        $gpu = @(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match $wantGpu })
+        if ($gpu.Count -gt 0) { Add-Result 'PASS' 'GPU present' $gpu[0].Name }
+        else { Add-Result 'FAIL' 'GPU present' "$wantGpu not listed. Possible GPU dropout" }
+    }
 }
 
 # =====================================================================
-Add-Result 'INFO' 'Laptop profile' "$($Expect.Name), $how"
+if ($IsGeneric -and $how -like 'not recognised*') {
+    Add-Result 'WARN' 'Laptop profile' "$how. Specs are listed, not compared. All health, tamper and prior-use checks still run. To compare, add a profile (docs\profiles.md) or force one with -Laptop"
+} else {
+    Add-Result 'INFO' 'Laptop profile' "$($Expect.Name), $how"
+}
+# Which exact version of this script produced the report: compare with docs/SHA256SUMS.txt in the repo
+$ScriptHash = try { (Get-FileHash $PSCommandPath -Algorithm SHA256).Hash.ToLower() } catch { 'unknown' }
+Add-Result 'INFO' 'Script version' "sha256 $ScriptHash"
 
 # Safety net: if anything below crashes, the error is recorded and the report is still written
 try {
@@ -316,7 +312,7 @@ elseif ($Monitor) {
 
     # GPU: nvidia-smi comes with the NVIDIA driver. Newer drivers renamed the slowdown-reason field.
     # Laptops whose profile has no NVIDIA GPU (GpuVramGB = 0) skip the GPU sensors.
-    $nvidiaExpected = ($Expect.GpuVramGB -gt 0)
+    $nvidiaExpected = $NvidiaExpected
     $smi = Find-NvidiaSmi
     $gpuFields = $null
     if ($nvidiaExpected -and $smi) {
@@ -417,10 +413,13 @@ elseif ($Monitor) {
         if ($loaded.Count -ge 5) {
             $p = Get-Median ($loaded | ForEach-Object { $_.GpuPower_W })
             $c = Get-Median ($loaded | ForEach-Object { $_.GpuClock_MHz })
-            if ($null -ne $p -and $p -lt $Expect.GpuMinWatts) {
-                Add-Result 'WARN' 'GPU sustained power' "median $p W at $c MHz under full load, expected at least $($Expect.GpuMinWatts) W. Check Performance mode and the HP charger; if both are right, suspect cooling"
+            $note = if ($Expect.GpuSustainedNote) { " ($($Expect.GpuSustainedNote))" } else { '' }
+            if ($Expect.GpuMinWatts -le 0) {
+                Add-Result 'INFO' 'GPU sustained power' "median $p W at $c MHz under full load (no expected value in this profile)"
+            } elseif ($null -ne $p -and $p -lt $Expect.GpuMinWatts) {
+                Add-Result 'WARN' 'GPU sustained power' "median $p W at $c MHz under full load, expected at least $($Expect.GpuMinWatts) W$note. Check the performance mode and the original charger; if both are right, suspect cooling"
             } else {
-                Add-Result 'PASS' 'GPU sustained power' "median $p W at $c MHz under full load (LaptopMedia: about 109 W, 2280 MHz after 30 min)"
+                Add-Result 'PASS' 'GPU sustained power' "median $p W at $c MHz under full load$note"
             }
         } else {
             Add-Result 'INFO' 'GPU sustained power' 'GPU was not under full load in the second half. Run a GPU test (OCCT 3D, a game) during the monitor'
@@ -440,7 +439,8 @@ elseif ($Monitor) {
     if ($cpuLoaded.Count -ge 5) {
         $clk = Get-Median ($cpuLoaded | ForEach-Object { $_.CpuClock_MHz })
         $lim = Get-Median ($cpuLoaded | ForEach-Object { $_.CpuPerfLimit_pct })
-        Add-Result 'INFO' 'CPU sustained clock' "median $clk MHz across all cores under full load (E-cores included, so below the P-core figure of about 3000 MHz), firmware limit median $lim% (100 = not limited)"
+        $cnote = if ($Expect.CpuSustainedNote) { ". $($Expect.CpuSustainedNote)" } else { '' }
+        Add-Result 'INFO' 'CPU sustained clock' "median $clk MHz averaged across all cores under full load, firmware limit median $lim% (100 = not limited)$cnote"
     } else {
         Add-Result 'INFO' 'CPU sustained clock' 'CPU was not under full load in the second half'
     }
@@ -500,15 +500,18 @@ else {
     }
     Add-Result 'INFO' 'BIOS version' "$($bios.SMBIOSBIOSVersion) ($($bios.ReleaseDate))"
 
-    if (-not $Expect.ProductNumber) { Add-Result 'INFO' 'Product number' "this model's firmware stores none" }
+    if (-not (Test-Spec 'ProductNumber')) { Add-Result 'INFO' 'Product number' "'$("$($cs.SystemSKUNumber)".Trim())'" }
+    elseif (-not $Expect.ProductNumber) { Add-Result 'INFO' 'Product number' "this model's firmware stores none" }
     elseif ($cs.SystemSKUNumber -match $Expect.ProductNumber) { Add-Result 'PASS' 'Product number' $cs.SystemSKUNumber }
     else { Add-Result 'FAIL' 'Product number' "got '$($cs.SystemSKUNumber)', expected $($Expect.ProductNumber)" }
 
-    if ($cs.Model -match $Expect.Model) { Add-Result 'PASS' 'Model' $cs.Model }
+    if (-not (Test-Spec 'Model')) { Add-Result 'INFO' 'Model' "$($cs.Manufacturer) $($cs.Model)" }
+    elseif ($cs.Model -match $Expect.Model) { Add-Result 'PASS' 'Model' $cs.Model }
     else { Add-Result 'FAIL' 'Model' "got '$($cs.Model)'" }
 
-    if ($bb.Product -eq $Expect.BoardId) { Add-Result 'PASS' 'Board ID' $bb.Product }
-    else { Add-Result 'WARN' 'Board ID' "got '$($bb.Product)', expected $($Expect.BoardId). Ask HP or the seller if this differs" }
+    if (-not (Test-Spec 'BoardId')) { Add-Result 'INFO' 'Board ID' $bb.Product }
+    elseif ($bb.Product -eq $Expect.BoardId) { Add-Result 'PASS' 'Board ID' $bb.Product }
+    else { Add-Result 'WARN' 'Board ID' "got '$($bb.Product)', expected $($Expect.BoardId). Ask the maker or the seller why it differs" }
 
     if ($bios.SerialNumber -and $bb.SerialNumber -and ($bb.SerialNumber -notmatch [regex]::Escape($bios.SerialNumber))) {
         Add-Result 'INFO' 'Board serial' "board serial '$($bb.SerialNumber)' differs from system serial (normal on most laptops, record it)"
@@ -518,9 +521,12 @@ else {
     Section 'CPU'
     $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
     Save-Text 'cpu.txt' ($cpu | Format-List Name, Manufacturer, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed, L2CacheSize, L3CacheSize, ProcessorId | Out-String)
-    if ($cpu.Name -match $Expect.Cpu) { Add-Result 'PASS' 'CPU model' $cpu.Name.Trim() }
+    if (-not (Test-Spec 'Cpu')) { Add-Result 'INFO' 'CPU model' $cpu.Name.Trim() }
+    elseif ($cpu.Name -match $Expect.Cpu) { Add-Result 'PASS' 'CPU model' $cpu.Name.Trim() }
     else { Add-Result 'FAIL' 'CPU model' "got '$($cpu.Name.Trim())', expected $($Expect.Cpu)" }
-    if ($cpu.NumberOfCores -eq $Expect.Cores -and $cpu.NumberOfLogicalProcessors -eq $Expect.Threads) {
+    if (-not (Test-Spec 'Cores')) {
+        Add-Result 'INFO' 'CPU cores/threads' "$($cpu.NumberOfCores)C / $($cpu.NumberOfLogicalProcessors)T"
+    } elseif ($cpu.NumberOfCores -eq $Expect.Cores -and $cpu.NumberOfLogicalProcessors -eq $Expect.Threads) {
         Add-Result 'PASS' 'CPU cores/threads' "$($cpu.NumberOfCores)C / $($cpu.NumberOfLogicalProcessors)T"
     } else {
         Add-Result 'FAIL' 'CPU cores/threads' "got $($cpu.NumberOfCores)C / $($cpu.NumberOfLogicalProcessors)T, expected $($Expect.Cores)C / $($Expect.Threads)T"
@@ -530,11 +536,14 @@ else {
     Section 'GPU'
     $gpus = Get-CimInstance Win32_VideoController
     Save-Text 'gpu.txt' ($gpus | Format-List Name, DriverVersion, DriverDate, AdapterRAM, VideoProcessor, PNPDeviceID | Out-String)
-    $nv = @($gpus | Where-Object { $_.Name -match $Expect.Gpu })
-    if ($nv.Count -gt 0) { Add-Result 'PASS' 'GPU model' $nv[0].Name }
-    else { Add-Result 'FAIL' 'GPU model' "got $(($gpus.Name) -join ', '), expected $($Expect.Gpu)" }
+    if (-not (Test-Spec 'Gpu')) { Add-Result 'INFO' 'GPU model' (($gpus.Name) -join ', ') }
+    else {
+        $nv = @($gpus | Where-Object { $_.Name -match $Expect.Gpu })
+        if ($nv.Count -gt 0) { Add-Result 'PASS' 'GPU model' $nv[0].Name }
+        else { Add-Result 'FAIL' 'GPU model' "got $(($gpus.Name) -join ', '), expected $($Expect.Gpu)" }
+    }
 
-    if ($Expect.GpuVramGB -gt 0) {
+    if ($NvidiaExpected) {
         $smi = Find-NvidiaSmi
         if ($smi) {
             $q = & $smi --query-gpu=name,vbios_version,memory.total,power.max_limit,pcie.link.gen.max,pcie.link.width.max --format=csv 2>&1
@@ -544,7 +553,8 @@ else {
             $mib = ConvertTo-Num $vals[0]
             if ($null -ne $mib) {
                 $vram = [math]::Round($mib / 1024)
-                if ($vram -eq $Expect.GpuVramGB) { Add-Result 'PASS' 'GPU memory' "$vram GB" }
+                if (-not (Test-Spec 'GpuVramGB')) { Add-Result 'INFO' 'GPU memory' "$vram GB" }
+                elseif ($vram -eq $Expect.GpuVramGB) { Add-Result 'PASS' 'GPU memory' "$vram GB" }
                 else { Add-Result 'FAIL' 'GPU memory' "$vram GB, expected $($Expect.GpuVramGB) GB" }
             }
         } else {
@@ -573,9 +583,11 @@ else {
         $res    = "$($native.W)x$($native.H)"
         $maxHz  = ($modes | Where-Object { $_.W -eq $native.W -and $_.H -eq $native.H } | Measure-Object Hz -Maximum).Maximum
         Save-Text 'display_modes.txt' ($modes | Sort-Object W, H, Hz -Unique | Format-Table -AutoSize | Out-String)
-        if ($res -eq $Expect.Display) { Add-Result 'PASS' 'Display resolution' $res }
+        if (-not (Test-Spec 'Display')) { Add-Result 'INFO' 'Display resolution' $res }
+        elseif ($res -eq $Expect.Display) { Add-Result 'PASS' 'Display resolution' $res }
         else { Add-Result 'FAIL' 'Display resolution' "panel reports $res, expected $($Expect.Display). Replaced panel?" }
-        if ($maxHz + 1 -ge $Expect.DisplayMinHz) { Add-Result 'PASS' 'Display refresh' "$maxHz Hz" }
+        if (-not (Test-Spec 'DisplayMinHz')) { Add-Result 'INFO' 'Display refresh' "$maxHz Hz" }
+        elseif ($maxHz + 1 -ge $Expect.DisplayMinHz) { Add-Result 'PASS' 'Display refresh' "$maxHz Hz" }
         else { Add-Result 'WARN' 'Display refresh' "panel lists at most $maxHz Hz, expected $($Expect.DisplayMinHz) Hz. Check Settings, Display, Advanced display" }
     } else {
         Add-Result 'INFO' 'Display' 'panel mode list not available. Check resolution and refresh in Settings, Display'
@@ -587,17 +599,21 @@ else {
     $ram | Select-Object DeviceLocator, Manufacturer, PartNumber, SerialNumber, Capacity, Speed, ConfiguredClockSpeed |
         Export-Csv (Join-Path $OutDir 'ram.csv') -NoTypeInformation
     $totalGB = [math]::Round((($ram | Measure-Object Capacity -Sum).Sum) / 1GB)
-    if ($ram.Count -eq $Expect.RamModules -and $totalGB -eq $Expect.RamGB) {
+    if (-not (Test-Spec 'RamModules')) {
+        Add-Result 'INFO' 'RAM layout' "$($ram.Count) modules, $totalGB GB"
+    } elseif ($ram.Count -eq $Expect.RamModules -and $totalGB -eq $Expect.RamGB) {
         Add-Result 'PASS' 'RAM layout' "$($ram.Count) modules, $totalGB GB"
     } else {
         Add-Result 'FAIL' 'RAM layout' "$($ram.Count) modules, $totalGB GB (expected $($Expect.RamModules) modules, $($Expect.RamGB) GB)"
     }
     $parts = @($ram | ForEach-Object { ($_.PartNumber -as [string]).Trim() } | Sort-Object -Unique)
     if ($parts.Count -eq 1) { Add-Result 'PASS' 'RAM matched pair' "$($ram[0].Manufacturer) $($parts[0])" }
+    elseif (-not (Test-Spec 'RamMatched')) { Add-Result 'INFO' 'RAM matched pair' "different part numbers ($($parts -join ' / ')). Normal if one module is soldered; otherwise it can mean a swapped module" }
     elseif (-not $Expect.RamMatched) { Add-Result 'PASS' 'RAM matched pair' "different part numbers ($($parts -join ' / ')), normal for this model: one soldered, one in the slot" }
     else { Add-Result 'WARN' 'RAM matched pair' "different part numbers: $($parts -join ' / '). Could mean a swapped module" }
     $mts = ($ram | Measure-Object ConfiguredClockSpeed -Minimum).Minimum
-    if ($mts -ge $Expect.RamMinMTs) { Add-Result 'PASS' 'RAM speed' "$mts MT/s" }
+    if (-not (Test-Spec 'RamMinMTs')) { Add-Result 'INFO' 'RAM speed' "$mts MT/s" }
+    elseif ($mts -ge $Expect.RamMinMTs) { Add-Result 'PASS' 'RAM speed' "$mts MT/s" }
     else { Add-Result 'WARN' 'RAM speed' "$mts MT/s, expected at least $($Expect.RamMinMTs). Slower or mismatched module?" }
 
     # Upgrade room: slots on the board and the firmware's stated maximum (MaxCapacityEx is in KB)
@@ -644,7 +660,8 @@ else {
     $internal = @($disks | Where-Object { "$($_.BusType)" -ne 'USB' })
     $sizes = @($internal | ForEach-Object { [math]::Round($_.Size / 1e9) })
     $okSize = @($sizes | Where-Object { $_ -ge 0.9 * $Expect.SsdGB -and $_ -le 1.1 * $Expect.SsdGB })
-    if ($okSize.Count -gt 0) { Add-Result 'PASS' 'SSD size' "$($okSize[0]) GB" }
+    if (-not (Test-Spec 'SsdGB')) { Add-Result 'INFO' 'SSD size' "$($sizes -join ', ') GB" }
+    elseif ($okSize.Count -gt 0) { Add-Result 'PASS' 'SSD size' "$($okSize[0]) GB" }
     else { Add-Result 'FAIL' 'SSD size' "found $($sizes -join ', ') GB, expected about $($Expect.SsdGB) GB. Swapped drive?" }
     $smartctl = Get-Command smartctl -ErrorAction SilentlyContinue
     if ($smartctl) {
@@ -672,8 +689,9 @@ else {
         else { Add-Result 'PASS' 'Battery' $detail }
         # Design capacity is fixed per battery model: a different number means a different battery
         $designWh = [math]::Round($design / 1000, 1)
-        if ([math]::Abs($designWh - $Expect.BatteryWh) -le 0.1 * $Expect.BatteryWh) { Add-Result 'PASS' 'Battery model' "designed for $designWh Wh" }
-        else { Add-Result 'WARN' 'Battery model' "designed for $designWh Wh, expected about $($Expect.BatteryWh) Wh. Replaced battery? Ask HP support which battery this serial shipped with" }
+        if (-not (Test-Spec 'BatteryWh')) { Add-Result 'INFO' 'Battery model' "designed for $designWh Wh" }
+        elseif ([math]::Abs($designWh - $Expect.BatteryWh) -le 0.1 * $Expect.BatteryWh) { Add-Result 'PASS' 'Battery model' "designed for $designWh Wh" }
+        else { Add-Result 'WARN' 'Battery model' "designed for $designWh Wh, expected about $($Expect.BatteryWh) Wh. Replaced battery? Ask the maker's support which battery this serial shipped with" }
         $batInfo = [ordered]@{}
         foreach ($f in 'Id', 'Manufacturer', 'SerialNumber', 'Chemistry', 'DesignCapacity', 'FullChargeCapacity', 'CycleCount') {
             $node = $b.SelectSingleNode("*[local-name()='$f']")
@@ -701,8 +719,12 @@ else {
         $pkStrings = @([regex]::Matches($pkText, '[ -~]{6,}') | ForEach-Object { $_.Value })
         $pkName = $pkStrings | Where-Object { $_ -match 'PK|Key|Cert|Secure Boot' } | Select-Object -First 1
         if (($names -join "`n") -match 'DO NOT (TRUST|SHIP)') { Add-Result 'FAIL' 'Secure Boot keys' 'test key found (PKfail), see secureboot_keys.txt' }
-        elseif (($pkStrings -join "`n") -match $Expect.Pk) { Add-Result 'PASS' 'Secure Boot keys' "PK: $pkName" }
-        else { Add-Result 'WARN' 'Secure Boot keys' "PK '$pkName' is not the maker's ($($Expect.Pk)). Custom keys? Check BIOS and secureboot_keys.txt" }
+        else {
+            # Generic mode: the key should name the laptop's maker (first word of the manufacturer, e.g. HP, LENOVO, Dell)
+            $pkWant = if (Test-Spec 'Pk') { $Expect.Pk } else { [regex]::Escape((("$($cs.Manufacturer)" -split '\s+')[0])) }
+            if ($pkWant -and (($pkStrings -join "`n") -match $pkWant)) { Add-Result 'PASS' 'Secure Boot keys' "PK: $pkName" }
+            else { Add-Result 'WARN' 'Secure Boot keys' "PK '$pkName' does not name the maker ($pkWant). Custom keys? Check BIOS and secureboot_keys.txt" }
+        }
     } catch { Add-Result 'WARN' 'Secure Boot keys' 'could not read PK (empty, setup mode, or legacy boot). Check BIOS' }
 
     # BIOS passwords: a password set by someone else locks you out of BIOS settings and updates.
@@ -714,7 +736,7 @@ else {
         if ($set.Count -gt 0) { Add-Result 'FAIL' 'BIOS passwords' ("set: " + (($set.Name) -join ', ') + '. Ask the seller to remove them or reject the unit') }
         else { Add-Result 'PASS' 'BIOS passwords' 'none set' }
     } else {
-        Add-Result 'INFO' 'BIOS passwords' 'HP BIOS WMI not available here. Check in BIOS setup (F10)'
+        Add-Result 'INFO' 'BIOS passwords' 'only HP exposes this to Windows. Check in BIOS setup that no password is set'
     }
 
     $tpm = Get-Tpm -ErrorAction SilentlyContinue
@@ -951,7 +973,7 @@ th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wr
     [void]$h.Append('</table>')
 
     [void]$h.Append('<h2>Expected values for this profile</h2>')
-    [void]$h.Append((ConvertTo-HtmlTable ($Expect.GetEnumerator() | Sort-Object Name | ForEach-Object { [pscustomobject]@{ Item = $_.Name; Expected = $_.Value } })))
+    [void]$h.Append((ConvertTo-HtmlTable ($Expect.GetEnumerator() | Sort-Object Name | ForEach-Object { [pscustomobject]@{ Item = $_.Name; Expected = (@($_.Value) -join '; ') } })))
 
     $sensorCsv = Join-Path $OutDir 'sensors.csv'
     if (Test-Path $sensorCsv) {
