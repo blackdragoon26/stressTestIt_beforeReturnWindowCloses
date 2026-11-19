@@ -75,6 +75,10 @@ First run, 2026-11-19, with:
   automatically from model + board ID; unknown laptops are checked against the OMEN. New automatic checks:
   serial vs invoice (asks once), display resolution and refresh (EDID mode list), SSD size, RAM speed,
   GPU memory, battery design capacity, webcam. ASUS values come from this unit (Linux audit) and ASUS specs.
+- 2026-11-19: every run now writes DOA_report_<mode>_<stamp>.pdf (HTML printed by headless Edge; the .html
+  stays as fallback): results, expected values, hardware_inventory.csv (exact models and serials),
+  sensor charts and sensors_stats.csv, raw outputs, script errors ($Error). Main work is wrapped in
+  try/catch so a crash still yields a report (WARN 'Script error', not FAIL).
 
 ## To do
 

@@ -15,8 +15,15 @@ Full plan (day by day, which stress tools, pass criteria, results log): the
 | PASS | As expected | Nothing |
 | INFO | A value to record | Copy it into the results log |
 
-Every run makes a folder `reports\<PC>_<mode>_<date_time>\` with `SUMMARY.txt`, the raw files, and
-`MANIFEST.sha256` (fingerprints that prove the files were not edited later).
+Every run makes a folder `reports\<PC>_<mode>_<date_time>\` with:
+
+- `DOA_report_<mode>_<date_time>.pdf`: **the file to share.** All results, the expected values, every part
+  with its exact model and serial (CPU, GPU, RAM, SSD, panel, battery, Wi-Fi, Bluetooth, camera, audio,
+  touchpad, USB and Thunderbolt), sensor charts from `-Monitor`, the raw outputs, and any script errors at
+  the end so a person or another agent can review it. It is made even if a check crashes or the laptop is
+  not recognised. Microsoft Edge (built into Windows) prints it; if that fails, the same report is there as
+  `.html` to open and print.
+- `SUMMARY.txt`, the raw files, and `MANIFEST.sha256` (fingerprints that prove no file was edited later).
 
 ## Get the kit onto the laptop (no Git needed)
 
