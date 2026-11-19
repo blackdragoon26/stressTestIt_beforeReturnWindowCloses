@@ -45,10 +45,15 @@ Do this before you install, update or sign in to anything:
 
     .\omen-audit.ps1
 
-It takes a few minutes (msinfo32 is the slow part). It changes nothing on the laptop. It checks:
+It first asks for the serial number printed on the invoice: type it and press Enter. It compares it
+with the serial in the BIOS itself. Then it runs on its own for a few minutes (msinfo32 is the slow part)
+and changes nothing on the laptop.
 
-- Identity: product number 834T6PA, model, board ID 8BB3, serial number, BIOS version
-- Genuine parts: CPU i7-13700HX with 16 cores and 24 threads, RTX 4070, 2 matched RAM modules, RAM slots
+It knows what this laptop is supposed to have (table at the bottom) and flags every difference itself:
+
+- Identity: product number 834T6PA, model, board ID 8BB3, serial number against the invoice, BIOS version
+- Genuine parts: CPU i7-13700HX with 16 cores and 24 threads, RTX 4070 with 8 GB, 16 GB RAM in 2 matched
+  modules at 4800 MT/s or faster, 1 TB SSD, 2560x1600 240 Hz panel, 97 Wh battery, webcam, Wi-Fi, Bluetooth
 - Prior use: SSD power-on hours and errors, battery health and cycle count
 - Tampering: Secure Boot on, Secure Boot keys are HP's (FAIL on leaked test keys), no BIOS password set
   by someone else, TPM, boot entries, Windows OEM key and activation, company or MDM enrollment, admin accounts
@@ -65,7 +70,8 @@ After the Windows reinstall (HP Cloud Recovery Tool) and the HP and NVIDIA drive
 
     .\omen-audit.ps1
 
-Keep both reports. The second one also reads the RTX 4070 power limit through nvidia-smi.
+Keep both reports. The second one also checks the GPU memory (8 GB) through nvidia-smi, which comes
+with the NVIDIA driver.
 
 ## Step 4: during every stress test, log the sensors
 
@@ -94,25 +100,36 @@ Lists anything new since the last quick run: WHEA hardware errors, unexpected sh
 NVIDIA driver resets, disk errors, devices with errors, and whether the RTX 4070 is still present.
 Takes a few seconds.
 
-## Testing on a different laptop
+## Which laptop it checks against
 
-Every expected value is a parameter. Example for the ASUS VivoBook X515DA used to develop this kit:
+Nothing to set. The script reads the laptop's model name and board ID and picks the matching profile.
+The first line of every report says which one it picked. It knows two laptops:
 
-    .\omen-audit.ps1 -ExpectProductNumber X515DA -ExpectModel VivoBook -ExpectBoardId X515DA `
-        -ExpectCpu 3500U -ExpectCores 4 -ExpectThreads 8 -ExpectGpu Radeon `
-        -ExpectRamModules 2 -ExpectRamGB 8 -ExpectPk ASUS
+- **omen**: the HP OMEN Transcend 16-u0005TX, the real target
+- **asus**: the ASUS VivoBook 15 X515DA used to test this kit. On that laptop, expect real WARNs for
+  the old SSD (19,000+ hours) and the worn battery (about 60%, 1,800+ cycles), and PASS for the rest
 
-## Expected values for this unit
+A laptop it does not recognise is checked against the OMEN, so a wrong or swapped machine fails loudly.
+To force a profile: `.\omen-audit.ps1 -Laptop omen`. To skip the serial question: `-InvoiceSerial <serial>`.
 
-| Item | Expected |
-| --- | --- |
-| Product number | 834T6PA#ACJ |
-| Board ID | 8BB3 |
-| CPU | i7-13700HX, 16 cores, 24 threads |
-| GPU | RTX 4070 Laptop, 8 GB, about 130 W max |
-| RAM | 2 x 8 GB DDR5-4800, matched part numbers |
-| Battery | full charge at least 95% of design, single-digit cycles |
-| Sustained (LaptopMedia) | GPU about 2280 MHz at 109 W after 30 min gaming, CPU P-cores about 3.0 GHz at 82 C |
+## Expected values (omen profile)
+
+| Item | Expected | On mismatch |
+| --- | --- | --- |
+| Product number | 834T6PA (box says 834T6PA#ACJ) | FAIL |
+| Model / board ID | Transcend / 8BB3 | FAIL / WARN |
+| CPU | i7-13700HX, 16 cores, 24 threads | FAIL |
+| GPU | RTX 4070 Laptop, 8 GB | FAIL |
+| RAM | 2 x 8 GB, matched part numbers, at least 4800 MT/s | FAIL / WARN / WARN |
+| SSD | about 1 TB (900 to 1100 GB) | FAIL |
+| Display | 2560x1600, 240 Hz | FAIL / WARN |
+| Battery | designed for about 97 Wh; full charge at least 95% of design; under 10 cycles | WARN |
+| Secure Boot key | HP's | WARN (FAIL if a leaked test key) |
+| Webcam, Wi-Fi, Bluetooth | present and working | FAIL |
+| Sustained (LaptopMedia) | GPU about 2280 MHz at 109 W after 30 min gaming, CPU P-cores about 3.0 GHz at 82 C | -Monitor WARN under 95 W |
+
+The battery is only a WARN because spec listings disagree (one says 45 Wh, reviews of this model say 97 Wh).
+If it fires, ask HP support which battery your serial number shipped with. Do not open the laptop to look.
 
 ## Optional: linux-live-audit.sh
 

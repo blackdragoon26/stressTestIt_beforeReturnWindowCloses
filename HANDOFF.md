@@ -36,7 +36,7 @@ workloads: install nothing system-wide, touch only this repo.
   optional 15 min stress-ng). Expected values overridable by env vars (EXPECT_SKU, EXPECT_BOARD, EXPECT_CPU,
   EXPECT_THREADS, EXPECT_GPU_REGEX, SSD_HOURS_WARN, EXPECT_PK_REGEX).
 - `omen-audit.ps1`: Windows audit, full mode and `-Quick` daily soak mode. Expected values are parameters
-  (-ExpectCpu, -ExpectCores, -ExpectThreads, -ExpectGpu, -ExpectRamModules, -ExpectRamGB, -ExpectPk, ...).
+  (built-in profiles, see README; -Laptop to force one).
   NEVER RUN YET: it could not be parsed or tested in the cloud session.
 
 ## Test history
@@ -71,6 +71,10 @@ First run, 2026-11-19, with:
 - 2026-11-19: omen-audit.ps1 -Monitor mode (sensor log during stress tests, sensors.csv, built-in sources
   only: nvidia-smi and Windows performance counters). README rewritten as Windows step-by-step.
   Checked bracket and quote balance with a script; PowerShell itself could not be run on this machine.
+- 2026-11-19: replaced the -Expect* parameters with built-in laptop profiles (omen, asus), picked
+  automatically from model + board ID; unknown laptops are checked against the OMEN. New automatic checks:
+  serial vs invoice (asks once), display resolution and refresh (EDID mode list), SSD size, RAM speed,
+  GPU memory, battery design capacity, webcam. ASUS values come from this unit (Linux audit) and ASUS specs.
 
 ## To do
 
@@ -78,11 +82,10 @@ First run, 2026-11-19, with:
 2. Re-run the Linux script with the same overrides and confirm only expected FAIL/WARN remain.
    Expected on this ASUS: FAIL Product number (no SKU), WARN Board ID, WARN RAM matched pair,
    WARN Battery, WARN SSD power-on hours, maybe WARN Radio firmware errors. stress-ng should PASS.
-3. FIRST REAL TEST: parse and run omen-audit.ps1 on any Windows machine (full, -Quick, and
-   -Monitor -Minutes 2 while something loads the CPU). It has never been executed.
-   When this machine is booted into Windows, run omen-audit.ps1 with overrides for this hardware and fix what breaks:
-   `.\omen-audit.ps1 -ExpectProductNumber X515DA -ExpectModel VivoBook -ExpectBoardId X515DA -ExpectCpu 3500U -ExpectCores 4 -ExpectThreads 8 -ExpectGpu 'Radeon' -ExpectRamModules 2 -ExpectRamGB 8 -ExpectPk ASUS`
-   then `.\omen-audit.ps1 -Quick -ExpectGpu 'Radeon'`.
+3. FIRST REAL TEST: on this ASUS booted into Windows, run `.\omen-audit.ps1`, `.\omen-audit.ps1 -Quick`
+   and `.\omen-audit.ps1 -Monitor -Minutes 2`. No settings needed: it recognises the ASUS profile.
+   Expected: WARN SSD health (19k h) and WARN Battery (60%, 1833 cycles), PASS for the rest.
+   It has never been executed: fix whatever errors appear.
 4. Add a LICENSE if Sankalp wants the repo public.
 
 ## Rules (from Sankalp, non-negotiable)
