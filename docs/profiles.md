@@ -54,9 +54,12 @@ All keys are optional. A key left out means "list it, do not compare it".
 | `RamModules`, `RamGB` | `2`, `16` | Module count and total | All (macOS: total only) |
 | `RamMatched` | `$true` | Same part number on every module. `$false` when one is soldered | Windows, Linux |
 | `RamMinMTs` | `4800` | Slowest configured module speed | Windows, Linux |
+| `UpgradeNote` | Text | Printed with the RAM upgrade room: slots, soldered memory, SSD slots | Windows |
 | `SsdGB` | `1000` | Internal drive size, within 10% | All |
+| `SsdMinReadMBs` | `1500` | Uncached sequential read speed of the system drive. WARN if slower | Windows |
 | `Display` | `'2560x1600'` | The panel's native resolution | All |
 | `DisplayMinHz` | `240` | Highest refresh rate at that resolution | Windows |
+| `Panel` | `'AUO.?A3A6'` | Panel maker and product code from EDID (regex). WARN only | Windows |
 | `BatteryWh` | `97` | Battery design capacity, within 10% | Windows, Linux |
 | `Pk` | `'HP\|Hewlett'` | Secure Boot Platform Key certificate (regex) | Windows, Linux |
 | `GpuTempWarn` | `87` | `-Monitor`: WARN at or above this GPU temperature | Windows |

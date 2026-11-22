@@ -30,19 +30,31 @@ for the serial number on your invoice and compares it with the BIOS. Press Enter
 | Command | When |
 | --- | --- |
 | `.\omen-audit.ps1` | The full audit, the day the laptop arrives, before you install anything |
-| `.\omen-audit.ps1 -Monitor -Minutes 60` | In a second window, during every stress test or gaming session |
+| `.\omen-audit.ps1 -Interactive` | Hands-on tests: screen, every key, touchpad, speakers, microphone, webcam, every port |
+| `.\omen-audit.ps1 -Stress -Minutes 30` | Full CPU and RAM load where every result is checked, with the sensor log |
+| `.\omen-audit.ps1 -GpuTest -Minutes 10` | Checks every byte of the GPU's memory, with the sensor log |
+| `.\omen-audit.ps1 -Monitor -Minutes 60` | Sensor log only, while you run a game or another stress tool |
 | `.\omen-audit.ps1 -Quick` | Every evening while you use it hard |
+| `.\omen-audit.ps1 -Only storage,battery` | Run some checks again (names in [Checks](checks.md)) |
 | `.\omen-audit.ps1 -InvoiceSerial 5CD1234XYZ` | Pass the serial instead of typing it |
 | `.\omen-audit.ps1 -Laptop omen` | Force a profile (see below) |
 
 Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`. Pasting the block again
 updates the kit and keeps the reports. In a new window later, you only need the first and fourth lines.
 
-**During stress tests**, run the stress tool (OCCT, Cinebench, a game) in one window and the monitor in
-another. Every 2 seconds it logs CPU and GPU clocks, load, temperatures, GPU power, GPU slowdown reasons and
-whether the charger is plugged in. At the end it flags GPU dropouts, hardware slowdowns, low sustained GPU
-power and any crash during the test. Press `Q` to stop early. Windows does not report fan speed or CPU
-package power: keep HWiNFO64 logging alongside for those.
+**Load tests that check their own answers.** A laptop can survive hours of load and still compute wrong
+answers. That is a fault you can return it for, and a plain busy loop never notices. `-Stress` loads every
+CPU thread and half the free RAM with fixed calculations and compares every result with the right one,
+the way [gpu-burn](https://github.com/wilicc/gpu-burn) checks GPUs. `-GpuTest` does the same for the
+GPU's memory with [memtest_vulkan](https://github.com/GpuZelenograd/memtest_vulkan), which the kit
+downloads once and checks against its published fingerprint. Run both together for a whole-system test:
+`.\omen-audit.ps1 -Stress -GpuTest -Minutes 60`.
+
+All three load modes log, every 2 seconds, CPU and GPU clocks, load, temperatures, GPU power and slowdown
+reasons, the GPU's PCIe link, and the battery's power flow. At the end they flag wrong results, GPU
+dropouts, hardware slowdowns, low sustained GPU power, a charger that cannot keep up, and any crash during
+the test. Press `Q` to stop early. Windows does not report fan speed or CPU package power: keep HWiNFO64
+logging alongside for those.
 
 ## Linux
 
@@ -121,34 +133,45 @@ Generic mode (no spec comparison, every other check):
 .\omen-audit.ps1 -Laptop generic
 ```
 
-Sensor log during a stress test (a second window; press Q to stop early):
+Hands-on tests (pick some or all from the menu it shows):
+
+```powershell
+.\omen-audit.ps1 -Interactive
+```
+
+Verified CPU and RAM load, 30 minutes (press Q to stop early):
+
+```powershell
+.\omen-audit.ps1 -Stress -Minutes 30
+```
+
+GPU memory test, 10 minutes (at least 6):
+
+```powershell
+.\omen-audit.ps1 -GpuTest -Minutes 10
+```
+
+Everything at once, 1 hour:
+
+```powershell
+.\omen-audit.ps1 -Stress -GpuTest -Minutes 60
+```
+
+Sensor log only, while a game or OCCT runs in another window:
 
 ```powershell
 .\omen-audit.ps1 -Monitor -Minutes 60
 ```
 
-A short monitor run to try it out:
-
-```powershell
-.\omen-audit.ps1 -Monitor -Minutes 2
-```
-
 Playing a video, even 4K gameplay, is not a load test: the graphics chip decodes it and the CPU stays mostly
-idle. To try the monitor under real load without installing anything, run this in a **third** window. It
-keeps every CPU core at 100% until you stop it:
+idle. The load modes keep the laptop awake while they run. If the lid is closed anyway, the report shows
+the gap and whether the laptop slept.
+
+Some checks again, without the whole audit:
 
 ```powershell
-1..[Environment]::ProcessorCount | ForEach-Object { Start-Job { while ($true) {} } } | Out-Null
+.\omen-audit.ps1 -Only storage,battery,devices
 ```
-
-Stop the load:
-
-```powershell
-Get-Job | Stop-Job; Get-Job | Remove-Job
-```
-
-For a real stress test use OCCT, Cinebench or a demanding game. The monitor keeps the laptop awake while it
-runs. If the lid is closed anyway, the report shows the gap and whether the laptop slept.
 
 Evening check (new errors since the last one):
 
@@ -156,10 +179,12 @@ Evening check (new errors since the last one):
 .\omen-audit.ps1 -Quick
 ```
 
-Fingerprint of the script, to compare with SHA256SUMS.txt:
+Check every kit file against the published fingerprints ([Trust](trust.md) explains this):
 
 ```powershell
-(Get-FileHash .\omen-audit.ps1).Hash
+$sums = (Invoke-WebRequest https://secondtrust.sankalpjha.dev/SHA256SUMS.txt -UseBasicParsing).Content -split "`n" | Where-Object { $_ -match '^[0-9a-f]{64}  ' }
+$bad = @(foreach ($l in $sums) { $h, $f = $l -split '  ', 2; $f = $f.Trim(); if ((Get-FileHash $f).Hash.ToLower() -ne $h) { $f } })
+if ($bad.Count) { "DIFFERENT: $($bad -join ', ')" } else { "All $($sums.Count) files match" }
 ```
 
 ### Linux (terminal, inside `~/stressTestIt_beforeReturnWindowCloses-main`)

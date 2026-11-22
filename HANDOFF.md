@@ -23,7 +23,8 @@ machine. It also runs other remote workloads: install nothing system-wide, touch
 
 | Path | What it is |
 | --- | --- |
-| `omen-audit.ps1` | Windows audit. Modes: full (default), `-Quick` (daily soak), `-Monitor -Minutes N` (sensor log). Every run writes a PDF report |
+| `omen-audit.ps1` | Windows entry point: options, mode, then runs the parts in `windows/`. Modes: full (default), `-Only <checks>`, `-Quick`, `-Monitor`, `-Stress`, `-GpuTest` (the last three combine), `-Interactive`. Every run writes a PDF report |
+| `windows/*.ps1`, `windows/checks/*.ps1` | The Windows kit split by job: one file per check area plus helpers. Map: `windows/README.md` |
 | `profiles/*.psd1` | Expected specs per laptop model, read with `Import-PowerShellDataFile` |
 | `docs/*.md` | Docs: guide, checks, profiles, trust, omen-day. GitHub shows them; the site renders the same files |
 | `docs/index.html`, `docs.html`, `site.css`, `.nojekyll` | The website. Static, hosted from `docs/` (GitHub Pages or Cloudflare Pages) once Sankalp gives a subdomain |
@@ -39,16 +40,28 @@ machine. It also runs other remote workloads: install nothing system-wide, touch
 
 ## How omen-audit.ps1 works
 
+- **Structure (since 2026-11-22):** `omen-audit.ps1` dot-sources `windows/core.ps1` and `profile.ps1`, then
+  the mode's files. The full audit runs `windows/checks/<name>.ps1` from the fixed list `$FullChecks`, each
+  inside its own try/catch, so one crash no longer stops the rest. All files share the script scope.
 - **Profiles:** the script loads every `profiles/*.psd1` file and matches each one's `Detect` regex against
   "model board ID". With no match it runs in **generic mode** (WARN "not recognised"): specs are listed, not
   compared, and every health, tamper and prior-use check still runs. `-Laptop <name>` forces a profile,
   and `-Laptop generic` forces generic mode. Every spec check is guarded by `Test-Spec '<key>'`.
-- **Checks:** identity, serial against the invoice (asks once), CPU, GPU and VRAM, RAM, the SSD (its NVMe
-  health log read through IOCTL), display, battery, Secure Boot and keys, BIOS passwords (HP WMI), TPM,
-  activation, company or MDM enrollment, devices, event logs.
+- **Checks:** identity, serial against the invoice (asks once), CPU, GPU and VRAM, display (resolution,
+  refresh, panel code), RAM and upgrade room, SSD (NVMe health log through IOCTL, uncached speed test),
+  battery, Secure Boot and keys, BIOS passwords and HP BIOS settings, kernel and boot integrity (boot flags,
+  HVCI, running driver signatures), activation, company or MDM enrollment, devices and PCIe link widths,
+  event logs (incl. SSD resets 129/153, CPU limited 37, LiveKernelReports).
+- **Load:** `-Stress` = verified CPU and RAM load (C# in `windows/stress.ps1`, gpu-burn principle: fixed
+  calculations compared with a reference). `-GpuTest` = memtest_vulkan v0.5.0, pinned by SHA-256, run as
+  `memtest_vulkan.exe 1` (unattended mode found in its source; device 1 = the dedicated GPU), log parsed.
+- **Hands-on:** `-Interactive` = screen colours, key map with chatter detection, touchpad, speakers
+  L/R/sweep, microphone (MCI record, deleted after), webcam, USB ports with uncached speed, other ports.
 - **Report:** `DOA_report_<mode>_<stamp>.pdf` is printed from HTML by headless Edge, with the `.html` kept as
-  a fallback. It includes the script's own SHA-256. A crash inside the main block still produces a report.
-- **Constraints:** the script must stay pure ASCII (Windows PowerShell 5.1). Nothing gets installed.
+  a fallback. It includes the SHA-256 of every kit file (`kit_files.csv`), a 16-character kit fingerprint,
+  and a WARN if any file differs from the bundled `docs/SHA256SUMS.txt`.
+- **Constraints:** every file must stay pure ASCII (Windows PowerShell 5.1), C# must compile as C# 5.
+  Nothing gets installed; `-GpuTest` downloads one pinned file into the kit's `tools` folder.
 
 ## Product direction
 
@@ -106,13 +119,23 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   checking Kernel-Power 42/107 to tell sleep from a possible freeze; no empty GPU fields in the progress line
   without NVIDIA; FAIL Model shows the expected value; empty product number reads "(none stored)".
 
+- **Split and new checks (2026-11-22), from research on gpu-burn, memtest_vulkan, LaptopInspector
+  (github.com/tyrmoga/hwcheck), Notebookcheck's Transcend 16 review and forum threads.** Verified in a
+  throwaway `mcr.microsoft.com/powershell` container (image removed after): all files parse, all C#
+  compiles as C# 5, the stress engine ran with 0 false errors and caught an injected RAM bit flip and wrong
+  CPU answers, the tone generator and the memtest_vulkan log parser work. **Not yet run on Windows.**
+  Also fixed: NUL characters in hardware_inventory.csv (empty monitor names, TPM version). Site body text
+  is now Plex Sans Medium (500) at 17 px with darker grey text.
+
 ## To do
 
 1. **Before the OMEN arrives (about 2026-11-26):**
-   - On the ASUS in Windows, paste the Step 1 block to update, then run:
-     - `.\omen-audit.ps1`: profiles now load from files
-     - `.\omen-audit.ps1 -Laptop generic`: generic mode, never run yet
-     - `.\omen-audit.ps1 -Quick` and `-Monitor -Minutes 2`: never run yet
+   - On the ASUS in Windows, paste the Step 1 block to update, then run the split kit for the first time:
+     - `.\omen-audit.ps1`: every check component, the new SSD speed, PCIe, kernel and panel checks
+     - `.\omen-audit.ps1 -Stress -Minutes 5`: the verified load (expect 0 wrong results)
+     - `.\omen-audit.ps1 -GpuTest -Minutes 6`: memtest_vulkan on the Radeon Vega (download, hash, run, parse)
+     - `.\omen-audit.ps1 -Interactive`: every hands-on test, especially the key map and USB speeds
+     - `.\omen-audit.ps1 -Only storage,kernel` and `-Quick`
    - DONE 2026-11-19: Linux script verified with sudo on the ASUS: profile recognised, serial PASS via
      `--serial`, RAM layout and speed PASS, SSD 19,282 h / 72.2 TB / wear 100% (WARN), battery 60% (WARN),
      0 FAIL; HTML report valid, manifest verifies.

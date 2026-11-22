@@ -23,9 +23,12 @@ only list what they find.
 | GPU model | Windows display adapters | *spec*: FAIL |
 | GPU memory | `nvidia-smi` (comes with the NVIDIA driver) | *spec*: FAIL |
 | Display resolution and refresh | The panel's own mode list (EDID) | *spec*: resolution FAIL (replaced panel), refresh WARN |
+| Display panel | The panel's maker and product code (EDID), for example `AUO A3A6` | *spec*: WARN if it differs (makers use more than one supplier) |
 | RAM layout, matched pair, speed | Each module's part number and speed | *spec*: layout FAIL, mismatch WARN, slow WARN |
 | RAM upgrade room | Slots and firmware maximum | INFO |
 | SSD size | Internal drives, in the GB printed on the box | *spec*: FAIL (swapped drive) |
+| SSD speed | 1 GB written and read back with the file cache bypassed | FAIL if data reads back wrong. WARN below the profile's minimum read speed (800 MB/s for NVMe without one) |
+| PCIe links | Lanes in use against lanes supported, for the SSD and the GPU | WARN if the SSD runs on fewer lanes (a bad seat or slot) |
 | Battery model | Design capacity in Wh | *spec*: WARN (replaced battery) |
 | Webcam, Wi-Fi, Bluetooth | Working devices | FAIL if missing |
 
@@ -49,6 +52,9 @@ them blank, so the kit reads the drive's health log directly, the same data `sma
 | BIOS passwords | HP's BIOS interface (HP only) | FAIL if a password is set |
 | TPM | Windows TPM status | WARN if missing or not ready |
 | Boot entries | `bcdedit` | Saved for review |
+| Boot flags | The current boot entry | FAIL on test signing, signature checks off, kernel or boot debugging, or early-launch anti-malware off |
+| Memory integrity | Virtualization-based security and HVCI | INFO |
+| Kernel driver signatures | Every running kernel driver's signature (Authenticode or catalog) | WARN for any without a valid signature |
 | Windows key and activation | Key stored in firmware, activation status | WARN if missing |
 | Company join, MDM enrollment | `dsregcmd`, enrollment registry | FAIL if enrolled (a company can lock or wipe it) |
 | Local admins, unsigned drivers | Accounts, driver signatures | INFO / WARN |
@@ -61,18 +67,26 @@ Checked by the full audit (last 30 days), by `-Quick` (since the last quick run)
 
 | Check | Result |
 | --- | --- |
-| WHEA hardware errors | FAIL |
+| WHEA hardware errors | FAIL, with the event IDs (17, 19, 47 are corrected errors; 1 and 18 fatal) |
 | Unexpected shutdowns (Kernel-Power 41) | FAIL, with the dates |
 | Blue screens (bugcheck 1001), new crash dumps | FAIL |
 | NVIDIA driver errors, display driver resets (4101) | FAIL |
 | Disk and NVMe errors | FAIL |
+| SSD resets and retries (129, 153) | WARN: early sign of a failing drive |
+| CPU limited by firmware (Kernel-Processor-Power 37) | INFO: normal on battery, worth a look if it fills the log on the charger |
+| Recovered hangs (`LiveKernelReports`) | WARN. `WATCHDOG` means the graphics driver hung and was restarted |
 | Devices with driver errors | FAIL |
 | Dedicated GPU still present | FAIL if it vanished |
 
-## Under load (`-Monitor`)
+## Under load (`-Stress`, `-GpuTest`, `-Monitor`)
 
 | Check | Result |
 | --- | --- |
+| Verified CPU load (`-Stress`) | FAIL on any wrong answer from a fixed matrix multiply and SHA-256 repeated on every thread |
+| Verified memory load (`-Stress`) | FAIL on any word of RAM that reads back wrong (half the free RAM, a new pattern every pass) |
+| GPU memory test (`-GpuTest`) | FAIL on any error memtest_vulkan reports, or if the GPU drops out. PASS needs its standard 5-minute test |
+| Charger keeps up | WARN if the battery drains while on the charger in 20% of samples or more |
+| GPU PCIe link under load | WARN if it runs on fewer lanes than it supports |
 | GPU answers in every sample | FAIL if it stops (GPU dropout) |
 | GPU hardware slowdown (thermal or power brake) | WARN |
 | GPU temperature | WARN at 87 C or above (profile can change it) |
@@ -82,6 +96,29 @@ Checked by the full audit (last 30 days), by `-Quick` (since the last quick run)
 | Board thermal zone | WARN at 100 C |
 
 Fan speed and CPU package power are not exposed by Windows. Use HWiNFO64 for those.
+
+## Hands-on (`-Interactive`)
+
+The faults only a person can see or hear. The kit runs each test and records your answer.
+
+| Test | How | Result |
+| --- | --- | --- |
+| Screen: pixels | Six full-screen colours | FAIL if you saw a dead or stuck pixel |
+| Screen: backlight | Black, white and grey | WARN on patches, bands or leaking light |
+| Keyboard | A map of every key; each turns black when Windows registers it | FAIL for any main key that never registered. WARN for chatter (one press registering twice within 40 ms) |
+| Touchpad | Left click, right click, scrolling | FAIL if one never registered |
+| Speakers | A tone left only, right only, then a sweep from 60 Hz to 12 kHz | FAIL on a missing side, rattle or crackle |
+| Microphone | 4 seconds recorded, measured and played back, then deleted | FAIL if silent or unclear |
+| Webcam | Opens the Camera app | FAIL if the picture is faulty |
+| USB ports | One port at a time: 256 MB written to a stick and read back, uncached | FAIL if nothing appears or the data differs. WARN if a port is under half the speed of the best one |
+| Other ports | HDMI, headphone jack, USB-C charging, charger plug | FAIL on your answer, or skip |
+
+## Which checks run in each mode
+
+`-Only` takes these names: `identity`, `cpu`, `gpu`, `display`, `memory`, `storage`, `battery`,
+`firmware`, `kernel`, `license`, `ownership`, `devices`, `software`, `inventory`, `msinfo`, `eventlogs`.
+Each is one file in `windows/checks`. If one fails with a script error, the others still run, and the
+report says which one failed and why.
 
 ## Linux
 
@@ -111,5 +148,6 @@ Fan speed and CPU package power are not exposed by Windows. Use HWiNFO64 for tho
 ## Every report also contains
 
 - Every part with its exact model and serial number (the hardware inventory).
-- The script's own SHA-256, so you know which version produced it.
+- The SHA-256 of every kit file that ran (`kit_files.csv`) and one short kit fingerprint. On Windows it
+  also compares them with the fingerprint list that came with the download and WARNs on any difference.
 - On Windows, any script errors, at the end, for debugging.

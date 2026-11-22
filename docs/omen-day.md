@@ -56,6 +56,16 @@ Finish Windows setup, connect to Wi-Fi, then open an admin PowerShell and paste 
 - Battery: at least 95% of design capacity and single-digit cycles.
 - Event logs: anything dated before delivery happened at the previous owner or the refurbisher. Record it.
 
+Then the hands-on tests. Have a USB stick, headphones and an HDMI screen ready:
+
+```powershell
+.\omen-audit.ps1 -Interactive
+```
+
+It walks through the screen colours (dead pixels, backlight), every key and the touchpad, both speakers,
+the microphone, the webcam, and each USB port with a real speed test. The Transcend 16 uses a mini-LED
+panel: a soft halo around bright objects on black is normal; patches or bands on grey are not.
+
 **Upload the whole `reports` folder to Google Drive now.** The reinstall in step 3 erases it.
 
 ## Day 1, step 2: HP's own hardware test
@@ -74,8 +84,17 @@ Photograph the result. HP support asks for its failure ID before anything else.
 
 ## Days 2 to 4: stress tests
 
-In Performance mode, on the HP charger, on a hard flat surface. For **every** test, open a second admin
-window and log it:
+In Performance mode, on the HP charger, on a hard flat surface, lid open.
+
+Start with the kit's own tests. They check their own answers, so a wrong result is a FAIL, not just a crash:
+
+```powershell
+.\omen-audit.ps1 -GpuTest -Minutes 10
+.\omen-audit.ps1 -Stress -Minutes 60
+.\omen-audit.ps1 -Stress -GpuTest -Minutes 60
+```
+
+Then the outside tools. For **every** one, open a second admin window and log it:
 
 ```powershell
 .\omen-audit.ps1 -Monitor -Minutes 60
@@ -84,14 +103,29 @@ window and log it:
 | Test | Tool | Pass |
 | --- | --- | --- |
 | RAM, outside Windows | MemTest86+ USB, 4 passes overnight | 0 errors |
-| CPU | OCCT CPU, 1 hour | 0 errors, no WHEA |
+| CPU and RAM, verified | `-Stress`, 1 hour | 0 wrong results, no WHEA |
+| GPU memory, verified | `-GpuTest`, 10 minutes, then OCCT VRAM test, 1 hour | 0 errors |
 | GPU | OCCT 3D Adaptive with error detection, 1 hour | 0 errors |
-| Whole system | OCCT Power, 1 hour | No shutdown, no driver reset |
+| Whole system | `-Stress -GpuTest`, then OCCT Power, 1 hour each | No shutdown, no driver reset, charger keeps up |
 | Sustained | Cinebench 2024 30 min loop, Superposition 30 min | Last score within about 5% of the first |
 | Real games | Your heaviest games, 2 hours each | No crash, no GPU dropout |
 
 The monitor WARNs if the GPU sustains under 95 W at full load. LaptopMedia measured this model at about
-109 W and 2280 MHz after 30 minutes.
+109 W and 2280 MHz after 30 minutes; Notebookcheck saw peaks of about 105 W against a 130 W target. At
+full CPU and GPU load together this model can briefly draw more than its 280 W charger supplies
+(Notebookcheck measured 292 W), so a short battery drain on the charger is normal. A steady one is not.
+
+## Upgrades: what fits
+
+From Notebookcheck's teardown of the 16-u0000 series:
+
+- **RAM:** two SO-DIMM DDR5 slots, both filled (2 x 8 GB). An upgrade replaces both modules.
+- **SSD:** one M.2 slot only. The second was given to the Wi-Fi card, so a bigger SSD replaces the 1 TB
+  one. Clone it first.
+- **Wi-Fi:** an M.2 card (Intel AX211), replaceable.
+
+The full audit lists the slots and the firmware's maximum RAM under "RAM upgrade room". Opening the case
+during the DOA window can void a replacement: wait until it closes.
 
 ## Every evening until the window closes
 

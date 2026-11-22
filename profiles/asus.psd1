@@ -14,10 +14,12 @@
     RamModules    = 2
     RamGB         = 8
     RamMatched    = $false                  # 4 GB soldered + 4 GB in the slot: part numbers differ by design
+    UpgradeNote   = 'One SO-DIMM slot next to 4 GB soldered on the board'
     RamMinMTs     = 2400
     SsdGB         = 512
     Display       = '1920x1080'
     DisplayMinHz  = 60
+    Panel         = 'AUO.?21ED'               # read from this unit's EDID (Windows report, 2026-11-19)
     BatteryWh     = 37
     Pk            = 'ASUS'
     GpuTempWarn   = 87

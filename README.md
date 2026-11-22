@@ -9,8 +9,11 @@ hardware, firmware and logs, and tells you:
   boot entries, leftover software.
 - **How much was it really used?** SSD power-on hours and terabytes written, read straight from the drive,
   plus battery wear and past crashes.
-- **Does it hold up under load?** A sensor log for every stress test that flags GPU dropouts, thermal and
-  power brakes, and low sustained power.
+- **Does it hold up under load?** CPU, RAM and GPU memory tests that check every answer, not just
+  survive, plus a sensor log that flags GPU dropouts, thermal and power brakes, low sustained power and a
+  charger that cannot keep up.
+- **Does every part work?** Guided hands-on tests for the screen, every key, the touchpad, speakers,
+  microphone, webcam and each USB port, with real port speeds.
 
 Every run writes a report to keep as proof. Read-only, nothing uploaded, nothing installed unless you ask.
 
@@ -35,7 +38,9 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 | Command | When |
 | --- | --- |
 | `.\omen-audit.ps1` | The full audit, the day the laptop arrives, before installing anything |
-| `.\omen-audit.ps1 -Monitor -Minutes 60` | In a second window, during every stress test |
+| `.\omen-audit.ps1 -Interactive` | Hands-on tests: screen, keys, touchpad, speakers, mic, webcam, ports |
+| `.\omen-audit.ps1 -Stress -GpuTest -Minutes 60` | Verified CPU, RAM and GPU memory load, with the sensor log |
+| `.\omen-audit.ps1 -Monitor -Minutes 60` | Sensor log only, while a game or another stress tool runs |
 | `.\omen-audit.ps1 -Quick` | Every evening while you use it hard |
 
 Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`.
@@ -62,7 +67,7 @@ All three read the same laptop profiles. Options and details: [Guide](docs/guide
 
 | Page | What it covers |
 | --- | --- |
-| [Guide](docs/guide.md) | Setup, the three modes, reading the results, stress tests |
+| [Guide](docs/guide.md) | Setup, every mode, reading the results, stress tests |
 | [Checks](docs/checks.md) | Every check, what it reads, when it passes, warns or fails |
 | [Profiles](docs/profiles.md) | Supported laptops, and how to add yours |
 | [Trust](docs/trust.md) | What the script does and does not do, checking the download, what reports contain |
@@ -82,7 +87,8 @@ With a profile, every spec is also compared against what the maker promised.
 
 | Path | What |
 | --- | --- |
-| `omen-audit.ps1` | The Windows audit |
+| `omen-audit.ps1` | The Windows audit: starts the parts below |
+| `windows/` | The Windows checks, one file per job ([map](windows/README.md)) |
 | `linux-live-audit.sh` | The Linux audit, for an installed system or a live USB |
 | `mac-audit.sh` | The macOS audit (experimental) |
 | `lib/common.sh` | Shared by the Linux and macOS scripts: profiles, results, the HTML report |

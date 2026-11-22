@@ -1,0 +1,6 @@
+# Keep the kit files byte for byte as published, so their SHA-256 matches docs/SHA256SUMS.txt
+# on every system (no CRLF conversion when cloned on Windows)
+*.ps1 -text
+*.psd1 -text
+*.sh -text
+docs/SHA256SUMS.txt -text
