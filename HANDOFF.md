@@ -138,6 +138,9 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   `~/SecondTrust-reports` and deletes the kit and its temp files; it refuses a git checkout or an
   unexpected folder name (tested on Linux, including the refusal). The Windows setup block deletes its zip;
   Edge's print profile is removed after each report.
+  `sudo bash linux-live-audit.sh --remove-tools` removes only the packages `--install` added (read from
+  `/var/log/apt/history.log*`, asks first). Every cleanup command, with by-hand fallbacks: guide.md#clean-up.
+  The docs site now supports section links (`docs.html#guide/clean-up`), same heading ids as GitHub.
 
 ## To do
 

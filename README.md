@@ -45,7 +45,7 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 
 Reports land in `reports` inside the kit folder on every system. When you are done, `-Cleanup` (Windows) or
 `--cleanup` (Linux, macOS) keeps the reports in your home folder under `SecondTrust-reports` and removes
-the kit.
+the kit. Every cleanup command, including removing the Linux tools: [Clean up](docs/guide.md#clean-up).
 
 **Linux.** In a terminal (add `--stress` for a 15 minute verified stress test):
 

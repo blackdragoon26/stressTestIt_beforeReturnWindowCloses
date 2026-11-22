@@ -43,14 +43,7 @@ Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`
 block again updates the kit and keeps the reports. In a new window later, you only need the first and fourth
 lines.
 
-**When you are done** (after the return window, or after one check of a laptop you are buying):
-
-```powershell
-.\omen-audit.ps1 -Cleanup
-```
-
-It moves every report to `C:\Users\<you>\SecondTrust-reports`, then deletes the kit, `C:\omen-kit` and the
-kit's temporary files. Only your reports stay. The setup block already deletes the downloaded zip.
+When you are done, one command keeps your reports and removes the rest: see [Clean up](#clean-up) below.
 
 **Load tests that check their own answers.** A laptop can survive hours of load and still compute wrong
 answers. That is a fault you can return it for, and a plain busy loop never notices. `-Stress` loads every
@@ -84,9 +77,8 @@ sudo bash linux-live-audit.sh --install
 | `--laptop omen` | Forces a profile, or `--laptop generic` |
 
 Reports land in `reports` inside the kit folder, one folder per run, owned by you even though the audit ran
-with `sudo`. It needs `sudo` to read the serial, the RAM modules and the SSD's health. When you are done,
-`bash linux-live-audit.sh --cleanup` moves the reports to `~/SecondTrust-reports` and deletes the kit. Tools
-added with `--install` stay installed.
+with `sudo`. It needs `sudo` to read the serial, the RAM modules and the SSD's health. When you are done:
+[Clean up](#clean-up).
 
 **Checking a Windows laptop from outside Windows:** boot Ubuntu from a USB stick ("Try Ubuntu"), connect to
 Wi-Fi, and run the same three lines. Windows cannot influence anything this sees. Copy the report folder to
@@ -107,7 +99,6 @@ bash mac-audit.sh
 | `--serial C02XXXXXXX` | Compares the serial with your invoice |
 | `--laptop generic` | Forces a profile or generic mode |
 | run with `sudo` | Adds the firmware password check on Intel Macs |
-| `--cleanup` | When you are done: moves the reports to `~/SecondTrust-reports` and deletes the kit |
 
 Reports land in `reports` inside the kit folder, one folder per run. A run takes a few minutes, most of
 it reading 30 days of shutdown history.
@@ -195,12 +186,6 @@ Evening check (new errors since the last one):
 .\omen-audit.ps1 -Quick
 ```
 
-Done with the kit: keep the reports in `C:\Users\<you>\SecondTrust-reports`, remove the rest:
-
-```powershell
-.\omen-audit.ps1 -Cleanup
-```
-
 Check every kit file against the published fingerprints ([Trust](trust.md) explains this):
 
 ```powershell
@@ -241,11 +226,6 @@ Fingerprints:
 sha256sum linux-live-audit.sh lib/common.sh
 ```
 
-Done with the kit: keep the reports in `~/SecondTrust-reports`, remove the rest:
-
-```bash
-bash linux-live-audit.sh --cleanup
-```
 
 ### macOS (Terminal, inside `~/stressTestIt_beforeReturnWindowCloses-main`)
 
@@ -273,10 +253,95 @@ Fingerprints:
 shasum -a 256 mac-audit.sh lib/common.sh
 ```
 
-Done with the kit: keep the reports in `~/SecondTrust-reports`, remove the rest:
+
+## Clean up
+
+When you are done with the kit: after the return window, or after checking a laptop you are buying. Your
+reports are kept; everything else the kit put on the computer goes.
+
+### Windows
+
+In an admin PowerShell, inside the kit folder:
+
+```powershell
+.\omen-audit.ps1 -Cleanup
+```
+
+It moves every report to `C:\Users\<you>\SecondTrust-reports`, then deletes `C:\omen-kit` (with the GPU
+test's download, which lives inside it) and the kit's temporary files in `%TEMP%`. There is nothing else to
+undo: the kit installs nothing, and `Set-ExecutionPolicy -Scope Process` ends when the window closes.
+
+If the kit folder is already gone or broken, the same by hand, in any admin PowerShell:
+
+```powershell
+cd $env:USERPROFILE
+$kit = 'C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main'
+New-Item -ItemType Directory "$env:USERPROFILE\SecondTrust-reports" -Force | Out-Null
+if (Test-Path "$kit\reports") { Get-ChildItem "$kit\reports" | Move-Item -Destination "$env:USERPROFILE\SecondTrust-reports" -Force }
+Remove-Item C:\omen-kit, $env:TEMP\omen-kit.zip, $env:TEMP\omen-audit-edge, $env:TEMP\secondtrust_* -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+### Linux
+
+If you used `--install`, remove the tools first. It reads apt's own history and removes only the packages
+`--install` added; anything you already had stays. It shows the list and asks before removing:
 
 ```bash
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+sudo bash linux-live-audit.sh --remove-tools
+```
+
+Then keep the reports in `~/SecondTrust-reports` and remove the kit:
+
+```bash
+cd ~/stressTestIt_beforeReturnWindowCloses-main
+bash linux-live-audit.sh --cleanup
+```
+
+By hand, if the kit folder is already broken:
+
+```bash
+cd ~ && mkdir -p ~/SecondTrust-reports
+sudo chown -R "$USER" ~/stressTestIt_beforeReturnWindowCloses-main
+mv ~/stressTestIt_beforeReturnWindowCloses-main/reports/* ~/SecondTrust-reports/ 2>/dev/null
+rm -rf ~/stressTestIt_beforeReturnWindowCloses-main
+```
+
+On a live USB there is nothing to clean up: the session forgets everything when it shuts down. Copy the
+reports to another stick first.
+
+### macOS
+
+```bash
+cd ~/stressTestIt_beforeReturnWindowCloses-main
 bash mac-audit.sh --cleanup
+```
+
+If you installed smartmontools only for this:
+
+```bash
+brew uninstall smartmontools
+```
+
+By hand, if the kit folder is already broken (this also keeps reports from older versions of the kit):
+
+```bash
+cd ~ && mkdir -p ~/SecondTrust-reports
+mv ~/stressTestIt_beforeReturnWindowCloses-main/reports/* ~/stressTestIt_beforeReturnWindowCloses-main/mac-audit-* ~/SecondTrust-reports/ 2>/dev/null
+rm -rf ~/stressTestIt_beforeReturnWindowCloses-main
+```
+
+### Removing the reports too
+
+Reports hold serial numbers, MAC addresses and account names. Delete them only when you no longer need the
+evidence, for example once the return window has closed.
+
+```powershell
+Remove-Item $env:USERPROFILE\SecondTrust-reports -Recurse -Force
+```
+
+```bash
+rm -rf ~/SecondTrust-reports
 ```
 
 ## Reading the result

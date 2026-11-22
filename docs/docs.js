@@ -14,9 +14,20 @@
     try { navigator.clipboard.writeText(text).then(done, selectInstead); } catch (e) { selectInstead(); }
   }
 
+  // Addresses are docs.html#<page> or docs.html#<page>/<section>, for example #guide/clean-up
+  var current = null;
+  function slug(t) { return t.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-'); }
+  function toSection(sec) {
+    var el = sec && document.getElementById(sec);
+    if (el) el.scrollIntoView(); else window.scrollTo(0, 0);
+  }
+
   function show() {
-    var p = (location.hash || '#guide').slice(1);
+    var parts = (location.hash || '#guide').slice(1).split('/');
+    var p = parts[0], sec = parts[1] || '';
     if (pages.indexOf(p) < 0) p = 'guide';
+    if (p === current) { toSection(sec); return; }   // same page: only move to the section
+    current = p;
     document.querySelectorAll('nav a').forEach(function (a) {
       if (a.getAttribute('href') === 'docs.html#' + p) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
@@ -31,10 +42,16 @@
         var h1 = doc.querySelector('h1');
         if (h1) document.title = h1.textContent + ' - SecondTrust';
 
-        // Links between pages: "checks.md" becomes "docs.html#checks"
+        // Every heading gets the same id GitHub gives it, so section links work on both
+        doc.querySelectorAll('h1, h2, h3').forEach(function (h) { h.id = slug(h.textContent); });
+
+        // Links between pages: "checks.md" becomes "docs.html#checks", "guide.md#clean-up" becomes
+        // "docs.html#guide/clean-up", and "#clean-up" on this page becomes "docs.html#<page>/clean-up"
         doc.querySelectorAll('a[href]').forEach(function (a) {
-          var m = a.getAttribute('href').match(/^([a-z-]+)\.md$/);
-          if (m && pages.indexOf(m[1]) >= 0) a.setAttribute('href', 'docs.html#' + m[1]);
+          var href = a.getAttribute('href');
+          var m = href.match(/^([a-z-]+)\.md(?:#([\w-]+))?$/);
+          if (m && pages.indexOf(m[1]) >= 0) a.setAttribute('href', 'docs.html#' + m[1] + (m[2] ? '/' + m[2] : ''));
+          else if (/^#[\w-]+$/.test(href)) a.setAttribute('href', 'docs.html#' + p + '/' + href.slice(1));
           if (/^https?:/.test(a.getAttribute('href'))) a.setAttribute('rel', 'noopener');
         });
 
@@ -60,9 +77,10 @@
           pre.parentNode.insertBefore(box, pre);
           box.appendChild(bar); box.appendChild(pre);
         });
-        window.scrollTo(0, 0);
+        toSection(sec);
       })
       .catch(function () {
+        current = null;
         doc.innerHTML = '<p class="status">This page could not be loaded. Read it on GitHub: ' +
           '<a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/tree/main/docs">docs/</a></p>';
       });

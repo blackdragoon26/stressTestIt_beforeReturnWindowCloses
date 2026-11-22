@@ -10,6 +10,7 @@
 #   sudo bash linux-live-audit.sh --laptop omen     # force a profile (or --laptop generic)
 #   sudo bash linux-live-audit.sh --serial 5CD123   # compare the serial with your invoice
 #   bash linux-live-audit.sh --cleanup              # keep the reports in ~/SecondTrust-reports, remove the kit
+#   sudo bash linux-live-audit.sh --remove-tools    # remove only the packages --install added
 #
 # Output: reports/<computer>_<mode>_<time>/ in the kit folder, with SUMMARY.txt, an HTML report and
 # MANIFEST.sha256. On a live USB, copy it somewhere before you reboot: a live session forgets everything.
@@ -18,7 +19,7 @@ set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$KIT/lib/common.sh"
 
-INSTALL=0; STRESS=0; LAPTOP=auto; INVOICE=""; CLEANUP=0
+INSTALL=0; STRESS=0; LAPTOP=auto; INVOICE=""; CLEANUP=0; REMOVE_TOOLS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --install) INSTALL=1 ;;
@@ -26,6 +27,7 @@ while [ $# -gt 0 ]; do
     --laptop)  LAPTOP="${2:-}"; shift ;;
     --serial)  INVOICE="${2:-}"; shift ;;
     --cleanup) CLEANUP=1 ;;
+    --remove-tools) REMOVE_TOOLS=1 ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -39,6 +41,21 @@ if [ "$(id -u)" -ne 0 ] && [ "${DOA_DEV:-0}" != 1 ]; then
   echo "Run with sudo."; exit 1
 fi
 
+# --remove-tools: apt's own history says exactly which packages --install added (the rest of its list was
+# already on the system), so only those are removed. Their leftover libraries are left for you to review.
+INSTALL_CMD="apt-get install -y -qq dmidecode pciutils usbutils nvme-cli smartmontools fwupd lm-sensors stress-ng bolt mokutil"
+if [ "$REMOVE_TOOLS" -eq 1 ]; then
+  have apt-get || { echo "--remove-tools only knows apt. Remove what you installed with your package manager."; exit 1; }
+  added="$(zgrep -h -A3 "Commandline: $INSTALL_CMD" /var/log/apt/history.log* 2>/dev/null | sed -n 's/^Install: //p' \
+    | tr ')' '\n' | sed 's/^[ ,]*//' | grep -v automatic | grep ':' | cut -d: -f1 | sort -u | tr '\n' ' ')"
+  if [ -z "${added// /}" ]; then echo "apt's history shows nothing that --install added (everything was already installed)."; exit 0; fi
+  echo "--install added: $added"
+  printf 'Remove them? [y/N] '; read -r yn
+  case "$yn" in y|Y|yes) apt-get remove -y $added && echo "Removed. 'sudo apt-get autoremove' can clear their leftover libraries: read its list before you confirm." ;;
+    *) echo "Nothing removed." ;; esac
+  exit 0
+fi
+
 if [ "$STRESS" -eq 1 ]; then report_dir stress; else report_dir full; fi
 SSD_HOURS_WARN=100
 
@@ -46,8 +63,7 @@ if [ "$INSTALL" -eq 1 ]; then
   if have apt-get; then
     add-apt-repository -y universe >/dev/null 2>&1 || true
     apt-get update -qq
-    apt-get install -y -qq dmidecode pciutils usbutils nvme-cli smartmontools fwupd \
-      lm-sensors stress-ng bolt mokutil >/dev/null
+    $INSTALL_CMD >/dev/null
   else
     echo "--install only knows apt-get. Install with your package manager: dmidecode pciutils usbutils"
     echo "nvme-cli smartmontools fwupd lm-sensors stress-ng mokutil"

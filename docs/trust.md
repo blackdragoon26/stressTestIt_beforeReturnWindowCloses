@@ -12,6 +12,8 @@ it is also how malware spreads. Here is exactly what this kit does, and how to c
   `-Cleanup` (Windows) or `--cleanup` (Linux, macOS) moves them to `SecondTrust-reports` in your home folder
   and deletes the kit and its temporary files. It never deletes a git checkout. The Windows setup block
   deletes its downloaded zip straight away, and Edge's print profile is removed after every report.
+  On Linux, `--remove-tools` removes exactly the packages `--install` added, read from apt's own history.
+  Every command: [Clean up](guide.md#clean-up).
 - **Test files, deleted after.** The SSD speed check writes one 1 GB file to `%TEMP%` and the USB port test
   one 256 MB file to your stick; both are deleted straight after. Nothing else on the stick is touched.
 - **Installs nothing unless you ask.** Only the Linux `--install` option installs packages, through your
