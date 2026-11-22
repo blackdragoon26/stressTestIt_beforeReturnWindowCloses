@@ -1,9 +1,7 @@
 # Every check
 
-What each check looks at, and when it passes, warns or fails. The tables below are the Windows script's
-checks, the most complete set; the Linux and macOS scripts are covered at the end. "Profile" means the
-expected values for the laptop model ([Profiles](profiles.md)). In generic mode, the checks marked *spec*
-only list what they find.
+What each check reads, and when it passes, warns or fails. Open a section to see its checks. Checks marked
+*spec* compare against the laptop's [profile](profiles.md); in generic mode they only list what they find.
 
 ## Identity: is it the laptop on the invoice?
 

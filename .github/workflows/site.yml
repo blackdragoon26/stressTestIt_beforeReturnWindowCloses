@@ -38,7 +38,7 @@ jobs:
           docker buildx build --platform linux/amd64 --load -t site:smoke -f deploy/Dockerfile .
           docker run -d --name smoke -p 127.0.0.1:8080:8080 site:smoke
           for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break; sleep 0.5; done
-          for p in / /docs.html /guide.md /site.css /site.js /docs.js /fonts/plex-sans-500.woff2 /fonts/plex-sans-600.woff2 /fonts/plex-mono-500.woff2; do
+          for p in / /docs.html /guide.md /checks.md /site.css /site.js /docs.js /bg.js /fonts/plex-sans-500.woff2 /fonts/plex-sans-600.woff2 /fonts/plex-mono-500.woff2; do
             curl -fsS -o /dev/null "http://127.0.0.1:8080$p"
           done
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/)" = 405

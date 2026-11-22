@@ -6,7 +6,7 @@
 <title>SecondTrust</title>
 <meta name="description" content="One command that tells you if a laptop is the machine you paid for, untampered, and how much it was really used. Windows, Linux and macOS. Read-only, open source, nothing uploaded.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="site.css?v=20261122b">
+<link rel="stylesheet" href="site.css?v=20261122f">
 </head>
 <body>
 <canvas id="bg" aria-hidden="true"></canvas>
@@ -14,7 +14,6 @@
   <a class="mark" href="index.html">SECONDTRUST</a>
   <nav>
     <a href="docs.html#guide">Guide</a>
-    <a href="docs.html#checks">Checks</a>
     <a href="docs.html#trust">Trust</a>
     <a href="https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses">GitHub</a>
   </nav>
@@ -76,6 +75,16 @@ bash mac-audit.sh</code></pre>
     <p class="fine">Read-only. Nothing uploaded. Open source. <a href="docs.html#guide">All commands</a> &middot; <a href="docs.html#trust">Check the download</a></p>
   </section>
 
+  <section class="checks-live" hidden>
+    <p class="eyebrow">What it checks</p>
+    <div class="result" id="checks" title="Hover to pause, click for the next">
+      <div class="code-bar"><span class="topic"></span><span class="frame"></span></div>
+      <div class="rows"></div>
+      <div class="bar" aria-hidden="true"></div>
+    </div>
+    <p class="fine"><span id="checks-total"></span> checks, a few at a time. Hover to pause, click for the next. <a href="docs.html#checks">Every check in detail</a></p>
+  </section>
+
 </main>
 
 <footer>
@@ -83,6 +92,7 @@ bash mac-audit.sh</code></pre>
   <span class="links"><a href="docs.html#checks">Every check</a><a href="docs.html#omen-day">Worked example</a></span>
 </footer>
 
-<script src="site.js?v=20261122b"></script>
+<script src="site.js?v=20261122f"></script>
+<script src="bg.js?v=20261122g"></script>
 </body>
 </html>

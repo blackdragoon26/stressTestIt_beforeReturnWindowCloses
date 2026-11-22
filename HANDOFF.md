@@ -142,6 +142,12 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   `/var/log/apt/history.log*`, asks first). Every cleanup command, with by-hand fallbacks: guide.md#clean-up.
   The docs site now supports section links (`docs.html#guide/clean-up`), same heading ids as GitHub.
 
+- **Site (2026-11-22):** the landing page cycles through the checks a few at a time under a scan line
+  (reads `docs/checks.md`; hover pauses, click skips); Checks is out of the navbar. The guide asks which
+  system first and shows only that one (or the full guide); the checks page is a tour, one topic per slide.
+  The live dot background (`docs/bg.js`) runs on every page and glows while scrolling. Body text is
+  regular weight again.
+
 ## To do
 
 1. **Before the OMEN arrives (about 2026-11-26):**
