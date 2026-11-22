@@ -6,9 +6,10 @@
 <title>SecondTrust</title>
 <meta name="description" content="One command that tells you if a laptop is the machine you paid for, untampered, and how much it was really used. Windows, Linux and macOS. Read-only, open source, nothing uploaded.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="site.css?v=20261122b">
 </head>
 <body>
+<canvas id="bg" aria-hidden="true"></canvas>
 <header class="top">
   <a class="mark" href="index.html">SECONDTRUST</a>
   <nav>
@@ -21,8 +22,19 @@
 
 <main>
   <section class="hero">
-    <h1>Check your laptop before the return window closes.<span class="caret" aria-hidden="true"></span></h1>
-    <p class="lead">One command. A report that says if it is the machine you paid for.</p>
+    <p class="eyebrow">Before the return window closes</p>
+    <h1 class="rotor">
+      <span class="sr" id="rotor-static">Is it the laptop you paid for?</span>
+      <span class="ghosts" aria-hidden="true">
+        <span>Is it the laptop you paid for?</span>
+        <span>Has anyone tampered with it?</span>
+        <span>How much was it really used?</span>
+        <span>Does every key and port work?</span>
+        <span>Will it hold up under load?</span>
+      </span>
+      <span class="live" aria-hidden="true"><span id="typed">Is it the laptop you paid for?</span><span class="caret"></span></span>
+    </h1>
+    <p class="lead">One command checks the hardware, firmware and logs, and writes a report you can keep as proof.</p>
   </section>
 
   <section class="cmd">
@@ -61,43 +73,16 @@ bash mac-audit.sh</code></pre>
       </div>
     </div>
 
-    <p class="fine">Read-only. Nothing uploaded. Open source. <a href="docs.html#trust">Check the download</a></p>
+    <p class="fine">Read-only. Nothing uploaded. Open source. <a href="docs.html#guide">All commands</a> &middot; <a href="docs.html#trust">Check the download</a></p>
   </section>
 
-  <section>
-    <ul class="qs">
-      <li><a href="docs.html#checks">
-        <span class="q">Is it the machine you paid for?</span>
-        <span class="a">Serial, CPU cores, GPU, RAM, SSD, screen and battery against the maker's spec.</span>
-        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
-      <li><a href="docs.html#checks">
-        <span class="q">Has anyone tampered with it?</span>
-        <span class="a">Secure Boot keys, firmware passwords, company enrollment, Activation Lock.</span>
-        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
-      <li><a href="docs.html#checks">
-        <span class="q">How much was it really used?</span>
-        <span class="a">SSD hours and terabytes written, read from the drive itself. Battery wear. Past crashes.</span>
-        <span class="arrow" aria-hidden="true">&rarr;</span></a></li>
-    </ul>
-  </section>
-
-  <section>
-    <div class="result run" id="result">
-      <div class="code-bar"><span>A real run &middot; ASUS VivoBook 15</span><span>4 of 46 results</span></div>
-      <div class="row"><span class="tag fail">FAIL</span><span>Unexpected shutdowns: 4 in 30 days</span></div>
-      <div class="row"><span class="tag warn">WARN</span><span>SSD: 19,278 hours, 72.21 TB written, wear 100%</span></div>
-      <div class="row"><span class="tag warn">WARN</span><span>Battery: 61% of design capacity, 1,833 cycles</span></div>
-      <div class="row"><span class="tag pass">PASS</span><span>CPU, GPU, screen, RAM, Secure Boot keys</span></div>
-    </div>
-    <p class="fine">Windows showed nothing for that SSD. The kit read the drive directly and matched Linux's <code>smartctl</code> to the hour.</p>
-  </section>
 </main>
 
 <footer>
-  <span>Windows, Linux, macOS. Open source.</span>
-  <span class="links"><a href="docs.html#profiles">Profiles</a><a href="docs.html#omen-day">Worked example</a><a href="SHA256SUMS.txt">SHA256SUMS</a></span>
+  <span>Windows, Linux, macOS</span>
+  <span class="links"><a href="docs.html#checks">Every check</a><a href="docs.html#omen-day">Worked example</a></span>
 </footer>
 
-<script src="site.js"></script>
+<script src="site.js?v=20261122b"></script>
 </body>
 </html>
