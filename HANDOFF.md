@@ -15,7 +15,7 @@ found and recorded inside that window.
 
 The OMEN runs Windows only, so `omen-audit.ps1` matters most for the DOA window. As a product the kit is
 OS neutral: Windows (`omen-audit.ps1`, tested), Linux (`linux-live-audit.sh`, tested on the ASUS) and macOS
-(`mac-audit.sh`, experimental: written without a Mac, parsers checked against sample output only). All three
+(`mac-audit.sh`, first real run 2026-11-22 on a MacBook Air M3; Intel Macs untested). All three
 read the same `profiles/*.psd1`. The Linux laptop this repo is developed on is the workbench and test
 machine. It also runs other remote workloads: install nothing system-wide, touch only this repo.
 
@@ -30,7 +30,7 @@ machine. It also runs other remote workloads: install nothing system-wide, touch
 | `docs/index.html`, `docs.html`, `site.css`, `.nojekyll` | The website. Static, hosted from `docs/` (GitHub Pages or Cloudflare Pages) once Sankalp gives a subdomain |
 | `docs/SHA256SUMS.txt`, `tools/update-hashes.sh` | Published fingerprints. Re-run the tool before every commit that changes a script or profile |
 | `linux-live-audit.sh` | Linux audit (installed or live USB), profile-aware. `DOA_DEV=1` skips the root check for testing without sudo |
-| `mac-audit.sh` | macOS audit, experimental. Activation Lock, MDM/DEP, SIP, Gatekeeper, panics, shutdown causes |
+| `mac-audit.sh` | macOS audit. Activation Lock (checked against Find My of the signed-in Apple ID), MDM/DEP, SIP, Gatekeeper, panics, shutdown causes, battery (Apple's own maximum capacity), charger |
 | `lib/common.sh` | Shared by the Linux and macOS scripts (bash 3.2): profile reading, results, HTML report, manifest |
 | `docs/site.js`, `docs/docs.js`, `docs/favicon.svg` | Page scripts (kept out of the HTML so the CSP allows no inline code) and the plain favicon |
 | `deploy/Dockerfile`, `deploy/nginx.conf`, `.dockerignore` | The website image: unprivileged nginx on 8080, `/healthz`, strict CSP, GET/HEAD only. Builds for arm64 without emulation |
@@ -126,6 +126,18 @@ repo is the "project agent" side only: build, publish, handoff. Registration and
   CPU answers, the tone generator and the memtest_vulkan log parser work. **Not yet run on Windows.**
   Also fixed: NUL characters in hardware_inventory.csv (empty monitor names, TPM version). Site body text
   is now Plex Sans Medium (500) at 17 px with darker grey text.
+
+- **First real Mac run (2026-11-22, MacBook Air M3, macOS 26.4.1):** worked, 0 FAIL, 4 WARN, but took
+  almost 6 minutes (the 30-day `log show` search, which found no shutdown causes on Apple silicon). Fixed
+  after it: the search now filters on the kernel process first; battery leads with Apple's own maximum
+  capacity (85%, the raw gauge said 79%); charger reported; Activation Lock PASSes when Find My is on for
+  the signed-in Apple ID (masked in the report); tidier GPU and MDM text; new `macbook-air-m3` profile.
+- **Reports and cleanup (2026-11-22):** every OS writes `reports/<computer>_<mode>_<time>/` inside the kit
+  (Linux and macOS used to write `linux-audit-*` / `mac-audit-*` into the current folder). Reports written
+  under sudo are chowned back to the user. `-Cleanup` / `--cleanup` moves reports to
+  `~/SecondTrust-reports` and deletes the kit and its temp files; it refuses a git checkout or an
+  unexpected folder name (tested on Linux, including the refusal). The Windows setup block deletes its zip;
+  Edge's print profile is removed after each report.
 
 ## To do
 

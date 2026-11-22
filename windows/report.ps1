@@ -167,6 +167,9 @@ th { background: #f0f0f0; } pre { font-size: 9px; white-space: pre-wrap; word-wr
         if (-not $p.WaitForExit(120000)) { try { $p.Kill() } catch { } }
         # Edge can hand the job to a helper process and exit first: give the file time to appear
         for ($i = 0; $i -lt 30 -and -not (Test-Path $pdfPath); $i++) { Start-Sleep -Seconds 1 }
+        # Edge's temporary profile is not needed after printing: leave nothing behind
+        Start-Sleep -Seconds 2
+        Remove-Item $edgeProfile -Recurse -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path $pdfPath) { Write-Host "PDF report: $pdfPath" -ForegroundColor Green }
     else { Write-Host "PDF could not be made (Edge missing or failed). Open $htmlPath and print it to PDF." -ForegroundColor Yellow }
@@ -180,4 +183,4 @@ Get-ChildItem $OutDir -File | Where-Object { $_.Name -ne 'MANIFEST.sha256' } | F
 } | Out-File (Join-Path $OutDir 'MANIFEST.sha256') -Encoding ascii
 
 Write-Host "`n$fails FAIL, $warns WARN. Report: $OutDir" -ForegroundColor $(if ($fails) { 'Red' } elseif ($warns) { 'Yellow' } else { 'Green' })
-Write-Host 'Upload the whole folder to Drive today.'
+Write-Host 'Upload the whole folder to Drive today. When you are done with the kit: .\omen-audit.ps1 -Cleanup'

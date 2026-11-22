@@ -10,6 +10,7 @@ health, tamper and prior-use checks still run.
 | --- | --- | --- |
 | `omen` | HP OMEN Transcend 16-u0005TX (834T6PA), i7-13700HX, RTX 4070 | Researched, not yet run on a real unit |
 | `asus` | ASUS VivoBook 15 X515DA, Ryzen 5 3500U | Verified on a real unit |
+| `macbook-air-m3` | Apple MacBook Air 13-inch, M3 (Mac15,12). RAM and SSD are listed, not compared | Verified on a real unit |
 
 ## How a profile is picked
 

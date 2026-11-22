@@ -55,6 +55,51 @@ report_profile_line() {
   result INFO "Script version" "sha256 ${me%% *}"
 }
 
+# ---------- where reports go, and cleaning up ----------
+# Every run writes reports/<computer>_<mode>_<time>/ inside the kit folder, like the Windows kit.
+report_dir() {  # report_dir <mode> -> sets OUT and SUMMARY
+  OUT="$KIT/reports/$(hostname -s 2>/dev/null || echo laptop)_${1}_$STAMP"
+  mkdir -p "$OUT"
+  SUMMARY="$OUT/SUMMARY.txt"
+  : > "$SUMMARY"
+}
+
+# The home folder of the person running the kit, also under sudo
+user_home() {
+  if [ -n "${SUDO_USER:-}" ]; then eval echo "~$SUDO_USER"; else echo "$HOME"; fi
+}
+
+# Files written under sudo belong to root; give them back, so you can open, move and delete them
+give_back() {
+  [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ] && chown -R "$SUDO_USER" "$@" 2>/dev/null
+  return 0
+}
+
+# --cleanup: keep the reports, remove everything else the kit put on this computer.
+# Reports move to ~/SecondTrust-reports, then the kit folder is deleted. A git checkout (a developer's
+# copy) is never deleted, and neither is a folder that does not look like the kit.
+kit_cleanup() {
+  local dest n old
+  dest="$(user_home)/SecondTrust-reports"
+  # Reports from older versions of the kit sit loose in the kit folder: keep those too
+  for old in "$KIT"/mac-audit-[0-9]* "$KIT"/linux-audit-[0-9]*; do
+    [ -d "$old" ] || continue
+    mkdir -p "$KIT/reports" && mv "$old" "$KIT/reports/"
+  done
+  if [ -d "$KIT/reports" ] && [ -n "$(ls -A "$KIT/reports" 2>/dev/null)" ]; then
+    mkdir -p "$dest"
+    mv "$KIT/reports/"* "$dest/" && give_back "$dest"
+    n=$(ls -1 "$dest" | grep -c .)
+    echo "Reports kept: $dest ($n folder(s))"
+  else
+    echo "No reports to keep."
+  fi
+  if [ -d "$KIT/.git" ]; then echo "$KIT is a git checkout: not deleting it."; return 0; fi
+  if [ ! -f "$KIT/lib/common.sh" ] || [ ! -f "$KIT/omen-audit.ps1" ]; then echo "$KIT does not look like the kit: not deleting it."; return 0; fi
+  case "$(basename "$KIT")" in stressTestIt_beforeReturnWindowCloses*) ;; *) echo "Unexpected folder name $KIT: not deleting it."; return 0 ;; esac
+  cd / && rm -rf "$KIT" && echo "Removed the kit: $KIT. Nothing else was left behind."
+}
+
 # ---------- report ----------
 html_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
@@ -98,6 +143,8 @@ EOF
     echo "</body></html>"
   } > "$html"
   ( cd "$OUT" && for f in *; do [ -f "$f" ] && [ "$f" != MANIFEST.sha256 ] && { shasum -a 256 "$f" 2>/dev/null || sha256sum "$f"; }; done > MANIFEST.sha256 )
+  give_back "$KIT/reports"
   echo
   echo "$fails FAIL, $warns WARN. Report: $html"
+  echo "When you are done with the kit: bash $(basename "$0") --cleanup (keeps the reports, removes the rest)"
 }

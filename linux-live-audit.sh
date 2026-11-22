@@ -9,36 +9,37 @@
 #   sudo bash linux-live-audit.sh --stress          # also a 15 min CPU + memory stress test with verification
 #   sudo bash linux-live-audit.sh --laptop omen     # force a profile (or --laptop generic)
 #   sudo bash linux-live-audit.sh --serial 5CD123   # compare the serial with your invoice
+#   bash linux-live-audit.sh --cleanup              # keep the reports in ~/SecondTrust-reports, remove the kit
 #
-# Output: ./linux-audit-<timestamp>/ with SUMMARY.txt, an HTML report and MANIFEST.sha256.
-# On a live USB, copy that folder somewhere before you reboot: a live session forgets everything.
+# Output: reports/<computer>_<mode>_<time>/ in the kit folder, with SUMMARY.txt, an HTML report and
+# MANIFEST.sha256. On a live USB, copy it somewhere before you reboot: a live session forgets everything.
 
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$KIT/lib/common.sh"
 
-INSTALL=0; STRESS=0; LAPTOP=auto; INVOICE=""
+INSTALL=0; STRESS=0; LAPTOP=auto; INVOICE=""; CLEANUP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --install) INSTALL=1 ;;
     --stress)  STRESS=1 ;;
     --laptop)  LAPTOP="${2:-}"; shift ;;
     --serial)  INVOICE="${2:-}"; shift ;;
+    --cleanup) CLEANUP=1 ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
   shift
 done
+
+STAMP="$(date +%Y%m%d_%H%M%S)"
+if [ "$CLEANUP" -eq 1 ]; then kit_cleanup; exit 0; fi
 
 # DOA_DEV=1 skips the root check, to test the script's logic without sudo (most checks then read less)
 if [ "$(id -u)" -ne 0 ] && [ "${DOA_DEV:-0}" != 1 ]; then
   echo "Run with sudo."; exit 1
 fi
 
-STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="$(pwd)/linux-audit-$STAMP"
-mkdir -p "$OUT"
-SUMMARY="$OUT/SUMMARY.txt"
-: > "$SUMMARY"
+if [ "$STRESS" -eq 1 ]; then report_dir stress; else report_dir full; fi
 SSD_HOURS_WARN=100
 
 if [ "$INSTALL" -eq 1 ]; then
@@ -294,5 +295,5 @@ if [ "$STRESS" -eq 1 ]; then
   fi
 fi
 
-write_report full
+if [ "$STRESS" -eq 1 ]; then write_report stress; else write_report full; fi
 echo "On a live USB, copy the folder somewhere before you reboot."

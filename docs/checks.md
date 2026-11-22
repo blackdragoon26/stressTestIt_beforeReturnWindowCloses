@@ -133,7 +133,7 @@ report says which one failed and why.
 | Stability | Kernel hardware errors this boot: machine checks, PCIe errors, NVMe timeouts, GPU hangs. Radio firmware errors are a WARN |
 | Under load | `--stress`: 15 minutes of CPU and memory stress with every result verified (`stress-ng`) |
 
-## macOS (experimental)
+## macOS
 
 `mac-audit.sh` uses the same profiles, matched on the model identifier (for example `Mac14,10`).
 
@@ -141,8 +141,8 @@ report says which one failed and why.
 | --- | --- |
 | Identity | Serial against `--serial`, model name and identifier |
 | Genuine parts | Chip, cores and threads, memory, GPU, built-in panel resolution, SSD size, webcam |
-| Prior use | SSD power-on hours, TB written and wear (needs smartmontools); battery health, cycles and condition |
-| Tampering | Activation Lock (a previous owner's lock), company enrollment through MDM and DEP (FAIL: a DEP Mac re-enrolls after a reset), System Integrity Protection, Gatekeeper, FileVault, firmware password on Intel Macs |
+| Prior use | SSD power-on hours, TB written and wear (needs smartmontools); battery: Apple's own maximum capacity (as in System Settings, with the raw gauge reading beside it), cycles and condition; the connected charger |
+| Tampering | Activation Lock: PASS when Find My is on for the Apple ID signed in on the Mac (shown masked), WARN otherwise (a previous owner's lock), company enrollment through MDM and DEP (FAIL: a DEP Mac re-enrolls after a reset), System Integrity Protection, Gatekeeper, FileVault, firmware password on Intel Macs |
 | Stability | Kernel panics and abnormal shutdown causes in the last 30 days |
 
 ## Every report also contains

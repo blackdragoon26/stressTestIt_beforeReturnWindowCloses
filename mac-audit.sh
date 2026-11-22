@@ -1,5 +1,6 @@
 #!/bin/bash
-# Laptop audit for macOS. EXPERIMENTAL: written without a Mac to test on. Report problems on GitHub.
+# Laptop audit for macOS. First run on a real Mac 2026-11-22 (MacBook Air M3, macOS 26.4.1); Intel Macs are
+# still untested. Report problems on GitHub.
 # Identity and specs against the Mac's profile, SSD health, battery wear, Activation Lock, company
 # (MDM / DEP) enrollment, System Integrity Protection, Gatekeeper, FileVault, kernel panics and
 # shutdown causes from the last 30 days.
@@ -9,19 +10,21 @@
 #   sudo bash mac-audit.sh                 # adds the firmware password check (Intel Macs)
 #   bash mac-audit.sh --serial C02XXXXXX   # compare the serial with your invoice
 #   bash mac-audit.sh --laptop generic     # force a profile, or generic mode
+#   bash mac-audit.sh --cleanup            # keep the reports in ~/SecondTrust-reports, remove the kit
 #
-# Output: ./mac-audit-<timestamp>/ with SUMMARY.txt, an HTML report and MANIFEST.sha256.
+# Output: reports/<computer>_full_<time>/ in the kit folder, with SUMMARY.txt, an HTML report and MANIFEST.sha256.
 # Bash 3.2 compatible (the version macOS ships).
 
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$KIT/lib/common.sh"
 
-LAPTOP=auto; INVOICE=""
+LAPTOP=auto; INVOICE=""; CLEANUP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --laptop) LAPTOP="${2:-}"; shift ;;
     --serial) INVOICE="${2:-}"; shift ;;
+    --cleanup) CLEANUP=1 ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -29,10 +32,8 @@ done
 [ "$(uname -s)" = Darwin ] || { echo "This script is for macOS. On Linux use linux-live-audit.sh, on Windows omen-audit.ps1."; exit 1; }
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="$(pwd)/mac-audit-$STAMP"
-mkdir -p "$OUT"
-SUMMARY="$OUT/SUMMARY.txt"
-: > "$SUMMARY"
+if [ "$CLEANUP" -eq 1 ]; then kit_cleanup; exit 0; fi
+report_dir full
 SSD_HOURS_WARN=100
 ROOT=0; [ "$(id -u)" -eq 0 ] && ROOT=1
 
@@ -84,7 +85,7 @@ elif [ "$memgb" = "$(spec RamGB)" ]; then result PASS "Memory" "$memory"
 else result FAIL "Memory" "got $memory, expected $(spec RamGB) GB"; fi
 
 sp SPDisplaysDataType > "$OUT/displays.txt"
-gpus="$(sed -n 's/^[[:space:]]*Chipset Model:[[:space:]]*//p' "$OUT/displays.txt" | tr '\n' ';')"
+gpus="$(sed -n 's/^[[:space:]]*Chipset Model:[[:space:]]*//p' "$OUT/displays.txt" | paste -sd, - | sed 's/,/, /g')"
 if ! spec_has Gpu; then result INFO "GPU" "$gpus"
 elif printf '%s' "$gpus" | grep -qiE -- "$(spec Gpu)"; then result PASS "GPU" "$gpus"
 else result FAIL "GPU" "got '$gpus', expected $(spec Gpu)"; fi
@@ -136,25 +137,48 @@ cycles="$(iokey CycleCount)"; design="$(iokey DesignCapacity)"; rawmax="$(iokey 
 [ -n "$rawmax" ] || rawmax="$(iokey NominalChargeCapacity)"
 ioreg -rn AppleSmartBattery > "$OUT/battery_ioreg.txt" 2>&1
 sp SPPowerDataType > "$OUT/power.txt"
-if [ -n "$design" ] && [ -n "$rawmax" ] && [ "$design" -gt 0 ]; then
-  pct=$(( 100 * rawmax / design ))
+# Apple's own "Maximum Capacity" (System Settings, Battery) is what Apple service goes by; the raw
+# gauge reading is lower on some Macs (seen on a MacBook Air M3: Apple 85%, raw 3623 / 4563 mAh = 79%)
+applemax="$(field "$OUT/power.txt" "Maximum Capacity" | tr -dc '0-9')"
+condition="$(field "$OUT/power.txt" "Condition")"
+raw=""; [ -n "$design" ] && [ -n "$rawmax" ] && [ "$design" -gt 0 ] && raw="raw gauge $rawmax / $design mAh = $(( 100 * rawmax / design ))%"
+pct="$applemax"; [ -n "$pct" ] || { [ -n "$raw" ] && pct=$(( 100 * rawmax / design )); }
+if [ -n "$pct" ]; then
   lvl=PASS; { [ "$pct" -lt 95 ] || [ "${cycles:-0}" -gt 10 ]; } && lvl=WARN
-  result "$lvl" "Battery" "$pct% of design ($rawmax / $design mAh), cycles ${cycles:-?}, condition $(field "$OUT/power.txt" "Condition")"
+  src="Apple reports $pct% maximum capacity"; [ -n "$applemax" ] || src="$pct% of design"
+  result "$lvl" "Battery" "$src, cycles ${cycles:-?}, condition ${condition:-?}${raw:+ ($raw)}"
 elif [ -n "$cycles" ]; then
-  result INFO "Battery" "cycles $cycles, condition $(field "$OUT/power.txt" "Condition")"
+  result INFO "Battery" "cycles $cycles, condition ${condition:-?}"
 fi
+charger="$(field "$OUT/power.txt" "Name")"; watts="$(field "$OUT/power.txt" "Wattage (W)")"
+if [ -n "$charger" ]; then result INFO "Charger" "$charger${watts:+, $watts W} (connected during the run)"
+else result INFO "Charger" "none connected during the run"; fi
 
 # ---------- tampering and ownership ----------
+# Activation Lock is on whenever Find My Mac is. If Find My is on for the Apple ID signed in here, it is
+# that account's lock; if not, it belongs to someone else (a previous owner).
+findmy=""; acct=""
+mma="$(defaults read "$(user_home)/Library/Preferences/MobileMeAccounts" Accounts 2>/dev/null)"
+if [ -n "$mma" ]; then
+  printf '%s' "$mma" | awk 'BEGIN { RS = "}" } /FIND_MY_MAC/ && /Enabled = 1/ { f = 1 } END { exit !f }' && findmy=1
+  acct="$(printf '%s' "$mma" | sed -n 's/^[[:space:]]*AccountID = "\{0,1\}\([^";]*\)"\{0,1\};.*/\1/p' | head -1)"
+  # Shown masked in the report: j***@icloud.com
+  [ -n "$acct" ] && acct="$(printf '%s' "$acct" | sed -E 's/^(.)[^@]*@/\1***@/')"
+fi
 case "$activation" in
   Disabled) result PASS "Activation Lock" "disabled" ;;
-  Enabled)  result WARN "Activation Lock" "on. Fine if it is your own Apple ID (Find My). If you have not signed in yet, it is the previous owner's lock: the Mac can be locked remotely" ;;
+  Enabled)
+    if [ -n "$findmy" ]; then result PASS "Activation Lock" "on, through Find My of the Apple ID signed in here (${acct:-this user}). If that is not your account, ask the seller to remove the Mac from it"
+    else result WARN "Activation Lock" "on, but Find My is not on for an Apple ID signed in here: it may be a previous owner's lock, and the Mac can be locked remotely. Ask the seller to remove it from their account"; fi ;;
   *)        result INFO "Activation Lock" "not reported on this model. Check System Settings, your name, Find My" ;;
 esac
 profiles status -type enrollment > "$OUT/mdm_enrollment.txt" 2>&1
+dep="$(sed -n 's/.*Enrolled via DEP:[[:space:]]*//p' "$OUT/mdm_enrollment.txt" | head -1)"
+mdm="$(sed -n 's/.*MDM enrollment:[[:space:]]*//p' "$OUT/mdm_enrollment.txt" | head -1)"
 if grep -qiE '(DEP|MDM enrollment).*: *Yes' "$OUT/mdm_enrollment.txt"; then
-  result FAIL "MDM enrollment" "$(tr '\n' ' ' < "$OUT/mdm_enrollment.txt"). A company can lock or wipe this Mac, and DEP re-enrolls it even after a reset"
+  result FAIL "MDM enrollment" "enrolled (DEP: ${dep:-?}, MDM: ${mdm:-?}). A company can lock or wipe this Mac, and DEP re-enrolls it even after a reset"
 else
-  result PASS "MDM enrollment" "$(tr '\n' ' ' < "$OUT/mdm_enrollment.txt")"
+  result PASS "MDM enrollment" "not enrolled (DEP: ${dep:-?}, MDM: ${mdm:-?})"
 fi
 profiles list > "$OUT/config_profiles.txt" 2>&1
 sip="$(csrutil status 2>&1)"
@@ -182,15 +206,16 @@ if [ -n "$panics" ]; then
 else
   result PASS "Kernel panics" "none in the last 30 days"
 fi
-echo "Reading 30 days of shutdown history (can take a minute)..."
-log show --last 30d --style syslog --predicate 'eventMessage CONTAINS "Previous shutdown cause"' > "$OUT/shutdown_causes.txt" 2>&1
+echo "Reading 30 days of shutdown history (up to a few minutes)..."
+# Only the kernel's messages: filtering on the process first is much faster than searching every message
+log show --last 30d --style syslog --predicate 'process == "kernel" AND eventMessage CONTAINS "Previous shutdown cause"' > "$OUT/shutdown_causes.txt" 2>&1
 # 5 = normal shutdown. 3 = held power button. Anything else (negative numbers especially) is a fault:
 # overheating, power loss, a watchdog reset.
 causes="$(sed -n 's/.*Previous shutdown cause: *\(-*[0-9][0-9]*\).*/\1/p' "$OUT/shutdown_causes.txt" | sort | uniq -c | awk '{printf "cause %s x%s, ", $2, $1}')"
 bad="$(sed -n 's/.*Previous shutdown cause: *\(-*[0-9][0-9]*\).*/\1/p' "$OUT/shutdown_causes.txt" | grep -vxE '5|3' | grep -c .)"
 if [ "${bad:-0}" -gt 0 ]; then result FAIL "Abnormal shutdowns" "$bad in the last 30 days (${causes%, }). See shutdown_causes.txt"
 elif [ -n "$causes" ]; then result PASS "Abnormal shutdowns" "none (${causes%, })"
-else result INFO "Abnormal shutdowns" "no shutdown history found in the unified log"; fi
+else result INFO "Abnormal shutdowns" "none recorded in the unified log (Apple silicon Macs often log no shutdown cause; the kernel panic check above still covers crashes)"; fi
 
 # ---------- devices and inventory ----------
 sp SPCameraDataType > "$OUT/camera.txt"

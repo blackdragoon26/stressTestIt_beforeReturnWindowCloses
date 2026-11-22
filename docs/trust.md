@@ -8,6 +8,10 @@ it is also how malware spreads. Here is exactly what this kit does, and how to c
 - **Reads only.** It reads hardware information, firmware settings, logs and drive health. It does not
   change settings. It writes its own report folder, plus temporary files (on Windows, Edge's print
   profile and the compiled helpers below, in `%TEMP%`).
+- **Leaves nothing behind when you ask.** Reports go to `reports` in the kit folder. When you are done,
+  `-Cleanup` (Windows) or `--cleanup` (Linux, macOS) moves them to `SecondTrust-reports` in your home folder
+  and deletes the kit and its temporary files. It never deletes a git checkout. The Windows setup block
+  deletes its downloaded zip straight away, and Edge's print profile is removed after every report.
 - **Test files, deleted after.** The SSD speed check writes one 1 GB file to `%TEMP%` and the USB port test
   one 256 MB file to your stick; both are deleted straight after. Nothing else on the stick is touched.
 - **Installs nothing unless you ask.** Only the Linux `--install` option installs packages, through your
@@ -74,5 +78,5 @@ Reports hold personal and identifying data. Look before you share:
   damage are for your eyes and ears.
 - **An in-Windows memory test cannot reach all RAM.** `-Stress` tests half the free memory while Windows
   runs. MemTest86+ from a USB stick tests all of it.
-- **The macOS script is experimental.** It was written without a Mac to test on.
+- **The macOS script has run on one Mac so far** (MacBook Air M3). Intel Macs are untested.
 - **Not yet code-signed.** Windows may warn about an unsigned script. A signing certificate is planned.

@@ -23,14 +23,14 @@ Every run writes a report to keep as proof. Read-only, nothing uploaded, nothing
 | --- | --- | --- | --- |
 | Windows 10 and 11 | `omen-audit.ps1` | PDF and HTML | Tested |
 | Linux (installed or live USB) | `linux-live-audit.sh` | HTML | Tested |
-| macOS | `mac-audit.sh` | HTML | Experimental |
+| macOS | `mac-audit.sh` | HTML | Tested on one Mac |
 
 **Windows.** Press `Win + X`, click **Terminal (Admin)**, paste this and press Enter:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
 Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
-Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
+Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force; Remove-Item $env:TEMP\omen-kit.zip
 cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 .\omen-audit.ps1
 ```
@@ -43,7 +43,9 @@ cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 | `.\omen-audit.ps1 -Monitor -Minutes 60` | Sensor log only, while a game or another stress tool runs |
 | `.\omen-audit.ps1 -Quick` | Every evening while you use it hard |
 
-Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`.
+Reports land in `reports` inside the kit folder on every system. When you are done, `-Cleanup` (Windows) or
+`--cleanup` (Linux, macOS) keeps the reports in your home folder under `SecondTrust-reports` and removes
+the kit.
 
 **Linux.** In a terminal (add `--stress` for a 15 minute verified stress test):
 
@@ -82,6 +84,7 @@ With a profile, every spec is also compared against what the maker promised.
 | --- | --- |
 | `omen` | HP OMEN Transcend 16-u0005TX (834T6PA) |
 | `asus` | ASUS VivoBook 15 X515DA |
+| `macbook-air-m3` | Apple MacBook Air 13-inch, M3 |
 
 ## Repository
 
@@ -90,7 +93,7 @@ With a profile, every spec is also compared against what the maker promised.
 | `omen-audit.ps1` | The Windows audit: starts the parts below |
 | `windows/` | The Windows checks, one file per job ([map](windows/README.md)) |
 | `linux-live-audit.sh` | The Linux audit, for an installed system or a live USB |
-| `mac-audit.sh` | The macOS audit (experimental) |
+| `mac-audit.sh` | The macOS audit (run on one Mac so far) |
 | `lib/common.sh` | Shared by the Linux and macOS scripts: profiles, results, the HTML report |
 | `profiles/` | Expected specs, one file per laptop model, read by all three scripts |
 | `docs/` | The docs above, and the website (`index.html`, `docs.html`, `site.css`, `fonts/`) |

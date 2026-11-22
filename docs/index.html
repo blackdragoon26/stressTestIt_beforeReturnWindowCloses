@@ -49,7 +49,7 @@
         <div class="code-bar"><span>Terminal (Admin)</span><button class="copy" type="button">Copy</button></div>
 <pre><code>Set-ExecutionPolicy -Scope Process Bypass -Force
 Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
-Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
+Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force; Remove-Item $env:TEMP\omen-kit.zip
 cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 .\omen-audit.ps1</code></pre>
       </div>
@@ -66,7 +66,7 @@ sudo bash linux-live-audit.sh --install</code></pre>
 
     <div class="os-panel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" hidden>
       <div class="code">
-        <div class="code-bar"><span>Terminal &middot; experimental</span><button class="copy" type="button">Copy</button></div>
+        <div class="code-bar"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
 <pre><code>curl -fsSL https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.tar.gz | tar -xz -C ~
 cd ~/stressTestIt_beforeReturnWindowCloses-main
 bash mac-audit.sh</code></pre>

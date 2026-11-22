@@ -7,7 +7,7 @@ and nothing is installed unless you ask for it.
 | --- | --- | --- | --- |
 | Windows 10 and 11 | `omen-audit.ps1` | PDF and HTML | Tested |
 | Linux (installed or live USB) | `linux-live-audit.sh` | HTML | Tested |
-| macOS | `mac-audit.sh` | HTML | Experimental: not yet run on a real Mac |
+| macOS | `mac-audit.sh` | HTML | Tested on one Mac (MacBook Air M3); Intel Macs untested |
 
 Want to check the download first? See [Trust](trust.md).
 
@@ -19,7 +19,7 @@ and press Enter:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
 Invoke-WebRequest https://github.com/blackdragoon26/stressTestIt_beforeReturnWindowCloses/archive/refs/heads/main.zip -OutFile $env:TEMP\omen-kit.zip -UseBasicParsing
-Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force
+Expand-Archive $env:TEMP\omen-kit.zip -DestinationPath C:\omen-kit -Force; Remove-Item $env:TEMP\omen-kit.zip
 cd C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main
 .\omen-audit.ps1
 ```
@@ -39,8 +39,18 @@ for the serial number on your invoice and compares it with the BIOS. Press Enter
 | `.\omen-audit.ps1 -InvoiceSerial 5CD1234XYZ` | Pass the serial instead of typing it |
 | `.\omen-audit.ps1 -Laptop omen` | Force a profile (see below) |
 
-Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`. Pasting the block again
-updates the kit and keeps the reports. In a new window later, you only need the first and fourth lines.
+Reports land in `C:\omen-kit\stressTestIt_beforeReturnWindowCloses-main\reports`, one folder per run. Pasting the
+block again updates the kit and keeps the reports. In a new window later, you only need the first and fourth
+lines.
+
+**When you are done** (after the return window, or after one check of a laptop you are buying):
+
+```powershell
+.\omen-audit.ps1 -Cleanup
+```
+
+It moves every report to `C:\Users\<you>\SecondTrust-reports`, then deletes the kit, `C:\omen-kit` and the
+kit's temporary files. Only your reports stay. The setup block already deletes the downloaded zip.
 
 **Load tests that check their own answers.** A laptop can survive hours of load and still compute wrong
 answers. That is a fault you can return it for, and a plain busy loop never notices. `-Stress` loads every
@@ -73,8 +83,10 @@ sudo bash linux-live-audit.sh --install
 | `--serial 5CD1234XYZ` | Compares the firmware serial with your invoice |
 | `--laptop omen` | Forces a profile, or `--laptop generic` |
 
-The report folder is `linux-audit-<date>` in the folder you ran it from. It needs `sudo` to read the serial,
-the RAM modules and the SSD's health.
+Reports land in `reports` inside the kit folder, one folder per run, owned by you even though the audit ran
+with `sudo`. It needs `sudo` to read the serial, the RAM modules and the SSD's health. When you are done,
+`bash linux-live-audit.sh --cleanup` moves the reports to `~/SecondTrust-reports` and deletes the kit. Tools
+added with `--install` stay installed.
 
 **Checking a Windows laptop from outside Windows:** boot Ubuntu from a USB stick ("Try Ubuntu"), connect to
 Wi-Fi, and run the same three lines. Windows cannot influence anything this sees. Copy the report folder to
@@ -95,12 +107,16 @@ bash mac-audit.sh
 | `--serial C02XXXXXXX` | Compares the serial with your invoice |
 | `--laptop generic` | Forces a profile or generic mode |
 | run with `sudo` | Adds the firmware password check on Intel Macs |
+| `--cleanup` | When you are done: moves the reports to `~/SecondTrust-reports` and deletes the kit |
+
+Reports land in `reports` inside the kit folder, one folder per run. A run takes a few minutes, most of
+it reading 30 days of shutdown history.
 
 For SSD power-on hours, the best proof of prior use, install smartmontools first
 (`brew install smartmontools`). Without it the report shows the drive's SMART status only.
 
-The macOS script is experimental. It was written without a Mac to test on, so if anything looks wrong, open
-an issue with the report.
+The macOS script has run on one Mac so far (MacBook Air M3, macOS 26). If anything looks wrong, especially
+on an Intel Mac, open an issue with the report.
 
 ## Every command, ready to copy
 
@@ -179,6 +195,12 @@ Evening check (new errors since the last one):
 .\omen-audit.ps1 -Quick
 ```
 
+Done with the kit: keep the reports in `C:\Users\<you>\SecondTrust-reports`, remove the rest:
+
+```powershell
+.\omen-audit.ps1 -Cleanup
+```
+
 Check every kit file against the published fingerprints ([Trust](trust.md) explains this):
 
 ```powershell
@@ -219,6 +241,12 @@ Fingerprints:
 sha256sum linux-live-audit.sh lib/common.sh
 ```
 
+Done with the kit: keep the reports in `~/SecondTrust-reports`, remove the rest:
+
+```bash
+bash linux-live-audit.sh --cleanup
+```
+
 ### macOS (Terminal, inside `~/stressTestIt_beforeReturnWindowCloses-main`)
 
 Full audit:
@@ -243,6 +271,12 @@ Fingerprints:
 
 ```bash
 shasum -a 256 mac-audit.sh lib/common.sh
+```
+
+Done with the kit: keep the reports in `~/SecondTrust-reports`, remove the rest:
+
+```bash
+bash mac-audit.sh --cleanup
 ```
 
 ## Reading the result

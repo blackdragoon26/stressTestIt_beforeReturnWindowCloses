@@ -12,6 +12,8 @@
     -Stress               verified CPU and RAM load plus the sensor log: every result is checked
     -GpuTest              verified video memory test (memtest_vulkan) plus the sensor log
     -Interactive          hands-on tests: screen, keyboard, touchpad, speakers, mic, webcam, ports
+    -Cleanup              when you are done: keeps the reports in %USERPROFILE%\SecondTrust-reports and
+                          removes the kit and its temporary files
   -Stress and -GpuTest can run together. Every run writes a folder under .\reports with a PDF report,
   SUMMARY.txt and a SHA-256 manifest, so the evidence can be shown to be unchanged later.
 
@@ -31,6 +33,7 @@ param(
     [switch]$Stress,
     [switch]$GpuTest,
     [switch]$Interactive,
+    [switch]$Cleanup,
     [int]$Minutes = 60,           # -Monitor, -Stress, -GpuTest: how long
     [int]$IntervalSec = 2,        # seconds between sensor samples
     [int]$StressMemoryPct = 50,   # -Stress: share of the free RAM to test
@@ -65,6 +68,31 @@ foreach ($f in @($KitComponents | ForEach-Object { Join-Path $Kit "$($_ -replace
 }
 
 . (Join-Path $Kit 'core.ps1')
+
+# ---------- -Cleanup: keep the reports, remove everything else the kit put on this computer ----------
+if ($Cleanup) {
+    $dest = Join-Path $env:USERPROFILE 'SecondTrust-reports'
+    $rep = Join-Path $KitRoot 'reports'
+    if ((Test-Path $rep) -and @(Get-ChildItem $rep -Force).Count -gt 0) {
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Get-ChildItem $rep -Force | Move-Item -Destination $dest -Force
+        Write-Host "Reports kept: $dest" -ForegroundColor Green
+    } else { Write-Host 'No reports to keep.' }
+    # Temporary files: the downloaded zip, Edge's print profile, an interrupted speed test or recording
+    foreach ($t in 'omen-kit.zip', 'omen-audit-edge', 'secondtrust_speedtest.tmp', 'secondtrust_mic.wav') {
+        Remove-Item (Join-Path $env:TEMP $t) -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    # Never delete a developer's git checkout, or a folder that does not look like the kit
+    if (Test-Path (Join-Path $KitRoot '.git')) { Write-Host "$KitRoot is a git checkout: not deleting it."; exit 0 }
+    if ((Split-Path $KitRoot -Leaf) -notlike 'stressTestIt_beforeReturnWindowCloses*') { Write-Host "Unexpected folder name $KitRoot`: not deleting it."; exit 0 }
+    Set-Location $env:USERPROFILE
+    $parent = Split-Path $KitRoot -Parent
+    Remove-Item $KitRoot -Recurse -Force
+    # C:\omen-kit only held the kit: remove it once it is empty
+    if ((Split-Path $parent -Leaf) -eq 'omen-kit' -and @(Get-ChildItem $parent -Force).Count -eq 0) { Remove-Item $parent -Force }
+    Write-Host "Removed the kit ($KitRoot) and its temporary files. Nothing else was left behind." -ForegroundColor Green
+    exit 0
+}
 
 # ---------- which mode ----------
 $loadMode = $Monitor -or $Stress -or $GpuTest
