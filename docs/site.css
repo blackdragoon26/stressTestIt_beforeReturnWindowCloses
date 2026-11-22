@@ -1,25 +1,25 @@
-/* Layout: one narrow column like a service manual. Black rules, IBM Plex Sans for reading,
+/* Layout: one narrow column like a service manual. Black rules, IBM Plex Sans (Medium, for legibility) for reading,
    IBM Plex Mono for anything you type or read off a machine. Fonts are served from ./fonts
    (SIL Open Font License, see fonts/OFL.txt): the site makes no requests to other hosts. */
-@font-face { font-family: "Plex Sans"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/plex-sans-400.woff2") format("woff2"); }
-@font-face { font-family: "Plex Sans"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/plex-sans-500.woff2") format("woff2"); }
+@font-face { font-family: "Plex Sans"; font-weight: 400 500; font-style: normal; font-display: swap; src: url("fonts/plex-sans-500.woff2") format("woff2"); }
+@font-face { font-family: "Plex Sans"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/plex-sans-600.woff2") format("woff2"); }
 @font-face { font-family: "Plex Sans"; font-weight: 700; font-style: normal; font-display: swap; src: url("fonts/plex-sans-700.woff2") format("woff2"); }
-@font-face { font-family: "Plex Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "Plex Mono"; font-weight: 400 500; font-style: normal; font-display: swap; src: url("fonts/plex-mono-500.woff2") format("woff2"); }
 @font-face { font-family: "Plex Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/plex-mono-600.woff2") format("woff2"); }
 
 :root {
   --bg: #ffffff;
   --fg: #0a0a0a;
-  --muted: #5b5b5b;
+  --muted: #3d3d3d;
   --rule: #e4e4e4;
   --soft: #f4f4f4;
   --sans: "Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #0a0a0a; --fg: #f2f2f2; --muted: #9c9c9c; --rule: #262626; --soft: #161616; color-scheme: dark; }
+  :root:not([data-theme="light"]) { --bg: #0a0a0a; --fg: #f2f2f2; --muted: #bdbdbd; --rule: #262626; --soft: #161616; color-scheme: dark; }
 }
-:root[data-theme="dark"] { --bg: #0a0a0a; --fg: #f2f2f2; --muted: #9c9c9c; --rule: #262626; --soft: #161616; color-scheme: dark; }
+:root[data-theme="dark"] { --bg: #0a0a0a; --fg: #f2f2f2; --muted: #bdbdbd; --rule: #262626; --soft: #161616; color-scheme: dark; }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -27,7 +27,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 400 16px/1.65 var(--sans);
+  font: 500 17px/1.65 var(--sans);
   font-feature-settings: "kern";
 }
 a { color: var(--fg); text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -63,15 +63,15 @@ section { padding: 52px 0 4px; }
 .hero { padding-top: 72px; }
 h1 { font-size: clamp(32px, 6.4vw, 52px); line-height: 1.06; letter-spacing: -0.025em; margin: 0 0 22px; font-weight: 700; }
 h2 { font: 600 12px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.14em; margin: 0 0 20px; }
-h3 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
+h3 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
 .lead { font-size: 19px; line-height: 1.6; max-width: 640px; margin: 0; }
-.fine { font-size: 14px; color: var(--muted); }
+.fine { font-size: 15px; color: var(--muted); }
 .more { margin-top: 20px; }
 
 /* operating system switch */
 .os { display: flex; flex-wrap: wrap; border: 1px solid var(--fg); border-bottom: 0; width: fit-content; max-width: 100%; }
 .os button {
-  font: 500 13px/1 var(--mono); padding: 10px 16px; cursor: pointer;
+  font: 600 13px/1 var(--mono); padding: 10px 16px; cursor: pointer;
   background: var(--bg); color: var(--muted); border: 0; border-right: 1px solid var(--fg);
 }
 .os button:last-child { border-right: 0; }
@@ -79,20 +79,20 @@ h3 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
 .os button:hover { color: var(--fg); background: var(--soft); }
 .os button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
 .os-panel:not([hidden]) { animation: swap .32s cubic-bezier(.2,.7,.2,1); }
-.os-panel .note { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+.os-panel .note { font-size: 15px; color: var(--muted); margin: 10px 0 0; }
 
 /* code: a label bar on top carries the copy button, so it never covers the command */
 .code { border: 1px solid var(--fg); margin: 0; }
 .code-bar {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   padding: 6px 6px 6px 14px; border-bottom: 1px solid var(--rule);
-  font: 12px/1.4 var(--mono); color: var(--muted);
+  font: 500 12.5px/1.4 var(--mono); color: var(--muted);
 }
 .copy {
   font: 600 12px/1 var(--mono); cursor: pointer; flex: none;
   background: var(--fg); color: var(--bg); border: 0; padding: 7px 11px;
 }
-pre, code { font-family: var(--mono); font-size: 13.5px; }
+pre, code { font-family: var(--mono); font-size: 14px; font-weight: 500; }
 .code pre {
   margin: 0; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6;
 }
@@ -100,7 +100,7 @@ pre, code { font-family: var(--mono); font-size: 13.5px; }
 /* what it checks */
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); }
 .grid > div { padding: 18px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-.grid p { margin: 0; color: var(--muted); font-size: 15px; }
+.grid p { margin: 0; color: var(--muted); font-size: 16px; }
 
 /* the three questions */
 .qs { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--fg); }
@@ -110,14 +110,14 @@ pre, code { font-family: var(--mono); font-size: 13.5px; }
   padding: 18px 12px; margin: 0 -12px; text-decoration: none;
   transition: background-color .25s;
 }
-.qs .q { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
-.qs .a { grid-column: 1; color: var(--muted); font-size: 15px; min-width: 0; }
+.qs .q { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+.qs .a { grid-column: 1; color: var(--muted); font-size: 16px; min-width: 0; }
 .qs .arrow { grid-column: 2; grid-row: 1 / span 2; font: 18px var(--mono); transition: transform .3s cubic-bezier(.2,.7,.2,1); }
 .qs a:hover { background: var(--soft); }
 .qs a:hover .arrow { transform: translateX(6px); }
 
 /* sample result: a scan line sweeps down and each tag stamps as it passes */
-.result { position: relative; overflow: hidden; border: 1px solid var(--fg); font: 13.5px/1.5 var(--mono); }
+.result { position: relative; overflow: hidden; border: 1px solid var(--fg); font: 500 14px/1.5 var(--mono); }
 .result .code-bar span:last-child { color: var(--muted); }
 .result.run::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--fg);
@@ -138,9 +138,9 @@ pre, code { font-family: var(--mono); font-size: 13.5px; }
 
 /* platform table */
 .matrix { overflow-x: auto; }
-.matrix table, article table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.matrix table, article table { border-collapse: collapse; width: 100%; font-size: 15.5px; font-variant-numeric: tabular-nums; }
 .matrix th, .matrix td, article th, article td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
-.matrix th, article th { border-bottom: 1px solid var(--fg); font-weight: 500; }
+.matrix th, article th { border-bottom: 1px solid var(--fg); font-weight: 600; }
 
 ul.plain { list-style: none; padding: 0; margin: 0; }
 ul.plain li { padding: 10px 0; border-bottom: 1px solid var(--rule); }
